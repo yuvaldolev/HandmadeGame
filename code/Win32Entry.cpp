@@ -1,5 +1,21 @@
 #include <windows.h>
 
+#define internal static
+#define global_variable static
+#define local_persist static
+
+// TODO(yuval & eran): Remove global variable!!!
+global_variable bool running;
+
+internal void Win32ResizeDIBSection()
+{
+    // NOTE(yuval & eran): Duplicated code, refactor into function
+    int width = paint.rcPaint.right - paint.rcPaint.left;
+    int height = paint.rcPaint.bottom - paint.rcPaint.top;
+
+
+}
+
 LRESULT CALLBACK Win32MainWindowCallback(HWND window,
                                          UINT message,
                                          WPARAM wParam,
@@ -11,17 +27,20 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     {
         case WM_SIZE:
         {
-            OutputDebugStringA("Window Resized\n");
+            RECT clientRect;
+            GetClientRect(window, &clientRect);
+
+            Win32ResizeDIBSection();
         } break;
 
         case WM_DESTROY:
         {
-            OutputDebugStringA("Window Destroyed\n");
+            running = false;
         } break;
 
         case WM_CLOSE:
         {
-            OutputDebugStringA("User Wants To Close Window\n");
+            running = false;
         } break;
 
         case WM_ACTIVATEAPP:
@@ -36,8 +55,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
 
             int x = paint.rcPaint.left;
             int y = paint.rcPaint.top;
-            int width = paint.rcPaint.right - paint.rcPaint.left;
-            int height = paint.rcPaint.bottom - paint.rcPaint.top;
+
             PatBlt(deviceContext, x, y, width, height, WHITENESS);
 
             EndPaint(window, &paint);
@@ -84,10 +102,11 @@ int WINAPI WinMain(HINSTANCE instance,
 
         if (windowHandle)
         {
-            MSG message;
+            running = true;
 
-            while (true)
+            while (running)
             {
+                MSG message;
                 BOOL messageResult = GetMessage(&message, 0, 0, 0);
 
                 if (messageResult > 0)
