@@ -7,13 +7,49 @@
 // TODO(yuval & eran): Remove global variable!!!
 global_variable bool running;
 
-internal void Win32ResizeDIBSection()
+global_variable BITMAPINFO bitmapInfo;
+global_variable void* bitmapMemory;
+global_variable HBITMAP bitmapHandle;
+global_variable HDC bitmapDeviceContext;
+
+internal void Win32ResizeDIBSection(int width, int height)
 {
-    // NOTE(yuval & eran): Duplicated code, refactor into function
-    int width = paint.rcPaint.right - paint.rcPaint.left;
-    int height = paint.rcPaint.bottom - paint.rcPaint.top;
+    if (bitmapHandle)
+    {
+        DeleteObject(bitmapHandle);
+    }
 
+    if (!bitmapDeviceContext)
+    {
+        bitmapDeviceContext = CreateCompatibleDC(0);
+    }
 
+    bitmapInfo.bmiHeader.biSize = sizeof(bitmapInfo.bmiHeader);
+    bitmapInfo.bmiHeader.biWidth = width;
+    bitmapInfo.bmiHeader.biHeight = height;
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    bitmapHandle = CreateDIBSection(
+        bitmapDeviceContext,
+        &bitmapInfo,
+        DIB_RGB_COLORS,
+        &bitmapMemory,
+        0, 0);
+}
+
+internal void Win32UpdateWindow(HDC deviceContext,
+                                int x, int y,
+                                int width, int height)
+{
+    StretchDIBits(deviceContext,
+                  x, y, width, height,
+                  x, y, width, height,
+                  bitmapMemory,
+                  &bitmapInfo,
+                  DIB_RGB_COLORS,
+                  SRCCOPY);
 }
 
 LRESULT CALLBACK Win32MainWindowCallback(HWND window,
@@ -30,7 +66,11 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
             RECT clientRect;
             GetClientRect(window, &clientRect);
 
-            Win32ResizeDIBSection();
+            // NOTE(yuval & eran): Duplicated code, refactor into function
+            int width = clientRect.right - clientRect.left;
+            int height = clientRect.bottom - clientRect.top;
+
+            Win32ResizeDIBSection(width, height);
         } break;
 
         case WM_DESTROY:
@@ -55,11 +95,11 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND window,
 
             int x = paint.rcPaint.left;
             int y = paint.rcPaint.top;
+            int width = paint.rcPaint.right - paint.rcPaint.left;
+            int height = paint.rcPaint.bottom - paint.rcPaint.top;
 
-            PatBlt(deviceContext, x, y, width, height, WHITENESS);
-
+            Win32UpdateWindow(deviceContext, x, y, width, height);
             EndPaint(window, &paint);
-
         } break;
 
         default:
