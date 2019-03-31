@@ -22,7 +22,35 @@ global_variable BITMAPINFO bitmapInfo;
 global_variable void* bitmapMemory;
 global_variable int bitmapWidth;
 global_variable int bitmapHeight;
+global_variable int bytesPerPixel = 4;
 
+internal void RenderGradient(int xOffset, int yOffset)
+{
+    int pitch = bitmapWidth * bytesPerPixel;
+    uint8* row = (uint8*)bitmapMemory;
+
+    for (int y = 0; y < bitmapHeight; ++y)
+    {
+        uint8* pixel = row;
+
+        for (int x = 0; x < bitmapWidth; ++x)
+        {
+            *pixel = (uint8)(x + xOffset);
+            ++pixel;
+
+            *pixel = (uint8)(y + yOffset);
+            ++pixel;
+
+            *pixel = 0;
+            ++pixel;
+
+            *pixel = 0;
+            ++pixel;
+        }
+
+        row += pitch;
+    }
+}
 internal void Win32ResizeDIBSection(int width, int height)
 {
     if (bitmapMemory)
@@ -40,36 +68,11 @@ internal void Win32ResizeDIBSection(int width, int height)
     bitmapInfo.bmiHeader.biBitCount = 32;
     bitmapInfo.bmiHeader.biCompression = BI_RGB;
 
-    int bytesPerPixel = 4;
+
     int bitmapMemorySize = bitmapWidth * bitmapHeight * bytesPerPixel;
 
     bitmapMemory = VirtualAlloc(0, bitmapMemorySize,
                                 MEM_COMMIT, PAGE_READWRITE);
-
-    int pitch = bitmapWidth * bytesPerPixel;
-    uint8* row = (uint8*)bitmapMemory;
-
-    for (int y = 0; y < bitmapHeight; ++y)
-    {
-        uint8* pixel = row;
-
-        for (int x = 0; x < bitmapWidth; ++x)
-        {
-            *pixel = 0;
-            ++pixel;
-
-            *pixel = 0;
-            ++pixel;
-
-            *pixel = 255;
-            ++pixel;
-
-            *pixel = 0;
-            ++pixel;
-        }
-
-        row += pitch;
-    }
 }
 
 internal void Win32UpdateWindow(HDC deviceContext,
@@ -158,7 +161,7 @@ int WINAPI WinMain(HINSTANCE instance,
 
     if (RegisterClass(&windowClass))
     {
-        HWND windowHandle = CreateWindowEx(
+        HWND window = CreateWindowEx(
             0,
             windowClass.lpszClassName,
             "Handmade Game",
@@ -172,24 +175,33 @@ int WINAPI WinMain(HINSTANCE instance,
             instance,
             0);
 
-        if (windowHandle)
+        if (window)
         {
             running = true;
+
+            int xOffset = 0;
+            int yOffset = 0;
 
             while (running)
             {
                 MSG message;
-                BOOL messageResult = GetMessage(&message, 0, 0, 0);
 
-                if (messageResult > 0)
+                while (PeekMessage(&message, window, 0, 0, PM_REMOVE))
                 {
+                    if (message.message == WM_QUIT)
+                    {
+                        running = false;
+                    }
+
                     TranslateMessage(&message);
                     DispatchMessage(&message);
                 }
-                else
-                {
-                    break;
-                }
+
+                RenderGradient(xOffset++, yOffset++);
+
+                HDC deviceContext = GetDC(window);
+                Win32UpdateWindow(deviceContext, 0, 0);
+                ReleaseDC(window, deviceContext);
             }
         }
     }
