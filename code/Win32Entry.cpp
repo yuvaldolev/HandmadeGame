@@ -1,6 +1,8 @@
 #include <windows.h>
-#include <stdint.h>
+#include <dsound.h>
 #include <xinput.h>
+
+#include <stdint.h>
 #include <stdio.h>
 
 #define internal static
@@ -11,6 +13,7 @@ typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
+typedef int32 bool32;
 
 typedef uint8_t uint8;
 typedef uint16_t uint16;
@@ -22,7 +25,7 @@ typedef X_INPUT_GET_STATE(XInputGetStateType);
 
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-    return !ERROR_SUCCESS;
+    return ERROR_DEVICE_NOT_CONNECTED;
 }
 
 global_variable XInputGetStateType* XInputGetState_ = XInputGetStateStub;
@@ -33,11 +36,14 @@ typedef X_INPUT_SET_STATE(XInputSetStateType);
 
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-    return !ERROR_SUCCESS;
+    return ERROR_DEVICE_NOT_CONNECTED;
 }
 
 global_variable XInputSetStateType* XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
+
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(DirectSoundCreateType);
 
 struct Win32Backbuffer
 {
@@ -56,13 +62,14 @@ struct Win32WindowDimension
 };
 
 // TODO(yuval & eran): Remove global variable!!!
-global_variable bool running;
+global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
 
-global_variable int GlobalXOffset = 0;
-global_variable int GlobalYOffset = 0;
+global_variable int globalXOffset = 0;
+global_variable int globalYOffset = 0;
 
-internal void RenderGradient(Win32Backbuffer* buffer, int xOffset, int yOffset)
+internal void RenderGradient(Win32Backbuffer* buffer,
+                             int xOffset, int yOffset)
 {
     uint8* row = (uint8*)buffer->memory;
 
@@ -82,15 +89,121 @@ internal void RenderGradient(Win32Backbuffer* buffer, int xOffset, int yOffset)
     }
 }
 
+internal void Win32InitDSound(HWND window,
+                              int32 samplesPerSecond,
+                              int32 bufferSize)
+{
+    // NOTE(yuval): Loading the direct sound library
+    HMODULE DSoundLibrary = LoadLibrary("dsound.dll");
+
+    // NOTE(yuval): Creating a DirectSound object
+    if (DSoundLibrary)
+    {
+        // NOTE(yuval): Loading the DirectSoundCreate function
+        DirectSoundCreateType* DirectSoundCreate = (DirectSoundCreateType*)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+
+        IDirectSound* directSound;
+
+        // NOTE(yuval): Creating the DirectSound object
+        if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &directSound, 0)))
+        {
+
+            WAVEFORMATEX waveFormat = { };
+            waveFormat.wFormatTag = WAVE_FORMAT_PCM;
+            waveFormat.nChannels = 2;
+            waveFormat.nSamplesPerSec = samplesPerSecond;
+            waveFormat.wBitsPerSample = 16;
+            waveFormat.nBlockAlign = (waveFormat.nChannels * waveFormat.wBitsPerSample) / 8;
+            waveFormat.nAvgBytesPerSec = waveFormat.nSamplesPerSec * waveFormat.nBlockAlign;
+            waveFormat.cbSize = 0;
+
+            // NOTE(yuval): Setting the cooperative level to PRIORITY
+            if (SUCCEEDED(directSound->SetCooperativeLevel(window,
+                DSSCL_PRIORITY)))
+            {
+                // NOTE(yuval): Creating the primary buffer
+                DSBUFFERDESC bufferDescription = { };
+                bufferDescription.dwSize = sizeof(bufferDescription);
+                bufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+                IDirectSoundBuffer* primaryBuffer;
+
+                if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription,
+                    &primaryBuffer, 0)))
+                {
+                    // NOTE(yuval): Setting the buffer format
+                    if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
+                    {
+                        // NOTE(yuval): Finished setting the format
+                        OutputDebugStringA("Primary buffer format was set");
+                    }
+                    else
+                    {
+                        // TODO(yuval & eran): Diagnostics
+                    }
+                }
+            }
+            else
+            {
+                // TODO(yuval & eran): Diagnostics
+            }
+
+            // NOTE(yuval): Creating the secondery buffer
+            DSBUFFERDESC bufferDescription = { };
+            bufferDescription.dwSize = sizeof(bufferDescription);
+            bufferDescription.dwFlags = 0;
+            bufferDescription.dwBufferBytes = bufferSize;
+            bufferDescription.lpwfxFormat = &waveFormat;
+
+            IDirectSoundBuffer* seconderyBuffer;
+
+            if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription,
+                &seconderyBuffer, 0)))
+            {
+                OutputDebugStringA("Second Buffer Created!");
+            }
+        }
+        else
+        {
+            // TODO(yuval & eran): Diagnostics
+        }
+    }
+    else
+    {
+        // TODO(yuval & eran): Diagnostics
+    }
+}
+
 internal void Win32LoadXInput()
 {
-    // TODO(yuval): Link to xinput_1_3.dll
-    HMODULE XInputLibrary = LoadLibrary(XINPUT_DLL_A);
+    // NOTE(yuval): Trying to load xinput1_4
+    HMODULE XInputLibrary = LoadLibrary("xinput1_4.dll");
+
+    // NOTE(yuval): It it doesn't succeed, trying to load 1_3
+    if (!XInputLibrary)
+    {
+        LoadLibrary("xinput1_3.dll");
+    }
 
     if (XInputLibrary)
     {
         XInputGetState = (XInputGetStateType*)GetProcAddress(XInputLibrary, "XInputGetState");
+
+        if (!XInputGetState)
+        {
+            XInputGetState = XInputGetStateStub;
+        }
+
         XInputSetState = (XInputSetStateType*)GetProcAddress(XInputLibrary, "XInputSetState");
+
+        if (!XInputGetState)
+        {
+            XInputSetState = XInputSetStateStub;
+        }
+    }
+    else
+    {
+        // TODO(yuval & eran): Diagnostics
     }
 }
 
@@ -161,12 +274,12 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND window,
 
         case WM_DESTROY:
         {
-            running = false;
+            globalRunning = false;
         } break;
 
         case WM_CLOSE:
         {
-            running = false;
+            globalRunning = false;
         } break;
 
         case WM_SYSKEYDOWN:
@@ -178,79 +291,87 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND window,
             bool wasDown = (lParam & (1 << 30)) != 0;
             bool isDown = (lParam & (1 << 31)) == 0;
 
-            switch (keyCode)
+            bool32 altIsDown = lParam & (1 << 29);
+            if (keyCode == VK_F4 && altIsDown)
             {
-                case 'W':
+                globalRunning = false;
+            }
+            else if (wasDown != isDown)
+            {
+                switch (keyCode)
                 {
-                    GlobalYOffset += 15;
-                } break;
-
-                case 'A':
-                {
-                    GlobalXOffset += 15;
-                } break;
-
-                case 'S':
-                {
-                    GlobalYOffset -= 15;
-                } break;
-
-                case 'D':
-                {
-                    GlobalXOffset -= 15;
-                } break;
-
-                case 'Q':
-                {
-
-                } break;
-
-                case 'E':
-                {
-
-                } break;
-
-                case VK_UP:
-                {
-
-                } break;
-
-                case VK_DOWN:
-                {
-
-                } break;
-
-                case VK_LEFT:
-                {
-
-                } break;
-
-                case VK_RIGHT:
-                {
-
-                } break;
-
-                case VK_ESCAPE:
-                {
-
-                } break;
-
-                case VK_SPACE:
-                {
-                    OutputDebugStringA("Space: ");
-
-                    if (wasDown)
+                    case 'W':
                     {
-                        OutputDebugStringA("WasDown ");
-                    }
+                        globalYOffset += 15;
+                    } break;
 
-                    if (isDown)
+                    case 'A':
                     {
-                        OutputDebugStringA("IsDown");
-                    }
+                        globalXOffset += 15;
+                    } break;
 
-                    OutputDebugStringA("\n");
-                } break;
+                    case 'S':
+                    {
+                        globalYOffset -= 15;
+                    } break;
+
+                    case 'D':
+                    {
+                        globalXOffset -= 15;
+                    } break;
+
+                    case 'Q':
+                    {
+
+                    } break;
+
+                    case 'E':
+                    {
+
+                    } break;
+
+                    case VK_UP:
+                    {
+
+                    } break;
+
+                    case VK_DOWN:
+                    {
+
+                    } break;
+
+                    case VK_LEFT:
+                    {
+
+                    } break;
+
+                    case VK_RIGHT:
+                    {
+
+                    } break;
+
+                    case VK_ESCAPE:
+                    {
+
+                    } break;
+
+                    case VK_SPACE:
+                    {
+                        OutputDebugStringA("Space: ");
+
+                        if (wasDown)
+                        {
+                            OutputDebugStringA("WasDown ");
+                        }
+
+                        if (isDown)
+                        {
+                            OutputDebugStringA("IsDown");
+                        }
+
+                        OutputDebugStringA("\n");
+                    } break;
+                }
             }
         } break;
 
@@ -296,9 +417,9 @@ int WINAPI WinMain(HINSTANCE instance,
     // HICON     hIcon;
     windowClass.lpszClassName = "HandmadeGameWindowClass";
 
-    if (RegisterClass(&windowClass))
+    if (RegisterClassA(&windowClass))
     {
-        HWND window = CreateWindowEx(
+        HWND window = CreateWindowExA(
             0,
             windowClass.lpszClassName,
             "Handmade Game",
@@ -314,23 +435,25 @@ int WINAPI WinMain(HINSTANCE instance,
 
         if (window)
         {
+            Win32InitDSound(window, 48000, 48000 * sizeof(int16) * 2);
+
             HDC deviceContext = GetDC(window);
 
-            running = true;
+            globalRunning = true;
 
-            while (running)
+            while (globalRunning)
             {
                 MSG message;
 
-                while (PeekMessage(&message, window, 0, 0, PM_REMOVE))
+                while (PeekMessageA(&message, window, 0, 0, PM_REMOVE))
                 {
                     if (message.message == WM_QUIT)
                     {
-                        running = false;
+                        globalRunning = false;
                     }
 
                     TranslateMessage(&message);
-                    DispatchMessage(&message);
+                    DispatchMessageA(&message);
                 }
 
                 for (DWORD controller = 0; controller < XUSER_MAX_COUNT; ++controller)
@@ -362,34 +485,32 @@ int WINAPI WinMain(HINSTANCE instance,
 
                         if (aButton)
                         {
-                            GlobalYOffset -= 5;
+                            globalYOffset -= 5;
                         }
                         else if(yButton)
                         {
-                            GlobalYOffset += 5;
+                            globalYOffset += 5;
                         }
                         else if (xButton)
                         {
-                            GlobalXOffset += 5;
+                            globalXOffset += 5;
                         }
                         else if (bButton)
                         {
-                            GlobalXOffset -= 5;
+                            globalXOffset -= 5;
                         }
 
-                        GlobalXOffset -= stickX / 2000;
-                        GlobalYOffset += stickY / 2000;
+                        globalXOffset -= stickX / 2000;
+                        globalYOffset += stickY / 2000;
                     }
                     else
                     {
                         // NOTE(yuval & eran): The contorller is not connected
-//                        OutputDebugStringA("Controller Off\n");
+                        // TODO(yuval & eran): Diagnostics
                     }
                 }
 
-//                OutputDebugStringA("\n");
-
-                RenderGradient(&globalBackbuffer, GlobalXOffset, GlobalYOffset);
+                RenderGradient(&globalBackbuffer, globalXOffset, globalYOffset);
 
                 Win32WindowDimension dim = Win32GetWindowDimension(window);
                 Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
