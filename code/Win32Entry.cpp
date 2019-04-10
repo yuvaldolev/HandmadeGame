@@ -64,12 +64,13 @@ struct Win32WindowDimension
 // TODO(yuval & eran): Remove global variable!!!
 global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
+global_variable IDirectSoundBuffer* globalSeconderyBuffer;
 
 global_variable int globalXOffset = 0;
 global_variable int globalYOffset = 0;
 
-internal void RenderGradient(Win32Backbuffer* buffer,
-                             int xOffset, int yOffset)
+internal void
+RenderGradient(Win32Backbuffer* buffer, int xOffset, int yOffset)
 {
     uint8* row = (uint8*)buffer->memory;
 
@@ -89,9 +90,8 @@ internal void RenderGradient(Win32Backbuffer* buffer,
     }
 }
 
-internal void Win32InitDSound(HWND window,
-                              int32 samplesPerSecond,
-                              int32 bufferSize)
+internal void
+Win32InitDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
 {
     // NOTE(yuval): Loading the direct sound library
     HMODULE DSoundLibrary = LoadLibrary("dsound.dll");
@@ -135,7 +135,7 @@ internal void Win32InitDSound(HWND window,
                     if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
                     {
                         // NOTE(yuval): Finished setting the format
-                        OutputDebugStringA("Primary buffer format was set");
+                        OutputDebugStringA("Primary buffer format was set\n");
                     }
                     else
                     {
@@ -155,12 +155,10 @@ internal void Win32InitDSound(HWND window,
             bufferDescription.dwBufferBytes = bufferSize;
             bufferDescription.lpwfxFormat = &waveFormat;
 
-            IDirectSoundBuffer* seconderyBuffer;
-
             if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription,
-                &seconderyBuffer, 0)))
+                &globalSeconderyBuffer, 0)))
             {
-                OutputDebugStringA("Second Buffer Created!");
+                OutputDebugStringA("Second Buffer Created!\n");
             }
         }
         else
@@ -174,7 +172,8 @@ internal void Win32InitDSound(HWND window,
     }
 }
 
-internal void Win32LoadXInput()
+internal void
+Win32LoadXInput()
 {
     // NOTE(yuval): Trying to load xinput1_4
     HMODULE XInputLibrary = LoadLibrary("xinput1_4.dll");
@@ -207,7 +206,8 @@ internal void Win32LoadXInput()
     }
 }
 
-internal Win32WindowDimension Win32GetWindowDimension(HWND window)
+internal Win32WindowDimension
+Win32GetWindowDimension(HWND window)
 {
     Win32WindowDimension dim = { };
 
@@ -221,7 +221,8 @@ internal Win32WindowDimension Win32GetWindowDimension(HWND window)
     return dim;
 }
 
-internal void Win32ResizeDIBSection(Win32Backbuffer* buffer, int width, int height)
+internal void
+Win32ResizeDIBSection(Win32Backbuffer* buffer, int width, int height)
 {
     if (buffer->memory)
     {
@@ -247,8 +248,9 @@ internal void Win32ResizeDIBSection(Win32Backbuffer* buffer, int width, int heig
     buffer->pitch = buffer->width * buffer->bytesPerPixel;
 }
 
-internal void Win32DisplayBackbufferInWindow(HDC deviceContext, Win32Backbuffer* buffer,
-                                             int windowWidth, int windowHeight)
+internal void
+Win32DisplayBackbufferInWindow(HDC deviceContext, Win32Backbuffer* buffer,
+                               int windowWidth, int windowHeight)
 {
     StretchDIBits(deviceContext,
                   0, 0, windowWidth, windowHeight,
@@ -259,10 +261,9 @@ internal void Win32DisplayBackbufferInWindow(HDC deviceContext, Win32Backbuffer*
                   SRCCOPY);
 }
 
-internal LRESULT CALLBACK Win32MainWindowCallback(HWND window,
-                                                  UINT message,
-                                                  WPARAM wParam,
-                                                  LPARAM lParam)
+internal LRESULT CALLBACK
+Win32MainWindowCallback(HWND window, UINT message,
+                        WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0;
 
@@ -400,10 +401,11 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND window,
     return result;
 }
 
-int WINAPI WinMain(HINSTANCE instance,
-                   HINSTANCE prevInstance,
-                   LPSTR commandLine,
-                   int showCode)
+int WINAPI
+WinMain(HINSTANCE instance,
+        HINSTANCE prevInstance,
+        LPSTR commandLine,
+        int showCode)
 {
     Win32LoadXInput();
 
@@ -435,9 +437,21 @@ int WINAPI WinMain(HINSTANCE instance,
 
         if (window)
         {
-            Win32InitDSound(window, 48000, 48000 * sizeof(int16) * 2);
+
 
             HDC deviceContext = GetDC(window);
+
+            int samplesPerSecond = 48000;
+            int toneHz = 1024;
+            int toneVolume = 16000;
+            int runningSampleIndex = 0;
+            int squareWavePeriod = samplesPerSecond / toneHz;
+            int halfSquareWavePeriod = squareWavePeriod / 2;
+            int bytesPerSample = sizeof(int16) * 2;
+            int seconderyBufferSize = samplesPerSecond * bytesPerSample;
+
+            Win32InitDSound(window, samplesPerSecond, seconderyBufferSize);
+            globalSeconderyBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             globalRunning = true;
 
@@ -510,10 +524,71 @@ int WINAPI WinMain(HINSTANCE instance,
                     }
                 }
 
+                // NOTE(yuval): Render test
                 RenderGradient(&globalBackbuffer, globalXOffset, globalYOffset);
 
                 Win32WindowDimension dim = Win32GetWindowDimension(window);
                 Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
+
+                // NOTE(yuval): DirectSound output test
+                DWORD playCursor;
+                DWORD writeCursor;
+
+                if (SUCCEEDED(globalSeconderyBuffer->
+                             GetCurrentPosition(&playCursor, &writeCursor)))
+                {
+                    DWORD lockOffset = (runningSampleIndex * bytesPerSample) % seconderyBufferSize;
+                    DWORD bytesToWrite;
+
+                    if (lockOffset > playCursor)
+                    {
+                        bytesToWrite = seconderyBufferSize - lockOffset;
+                        bytesToWrite += playCursor;
+                    }
+                    else
+                    {
+                        bytesToWrite = playCursor - lockOffset;
+                    }
+
+                    void* region1;
+                    DWORD region1Size;
+                    void* region2;
+                    DWORD region2Size;
+
+                    // NOTE(yuval): Locking the buffer before writing
+                    if (SUCCEEDED(globalSeconderyBuffer->Lock(lockOffset, bytesToWrite,
+                        &region1, &region1Size,
+                        &region2, &region2Size,
+                        0)))
+                    {
+                        // NOTE(yuval): Writing a square wave to region 1
+                        int region1SampleCount = region1Size / bytesPerSample;
+                        int16* sampleOut = (int16*)region1;
+                        for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex)
+                        {
+                            int sampleValue = ((runningSampleIndex++ / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
+                            *sampleOut++ = sampleValue;
+                            *sampleOut++ = sampleValue;
+                        }
+
+                        // NOTE(yuval): Writing a square wave to region 2
+                        int region2SampleCount = region2Size / bytesPerSample;
+                        sampleOut = (int16*)region2;
+                        for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex)
+                        {
+                            int sampleValue = ((runningSampleIndex++ / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
+                            *sampleOut++ = sampleValue;
+                            *sampleOut++ = sampleValue;
+                        }
+
+                        globalSeconderyBuffer->Unlock(region1, region1Size,
+                                                      region2, region2Size);
+                    }
+                    else
+                    {
+                        // TODO(yuval & eran): Diagnostics
+                    }
+                }
             }
         }
     }
