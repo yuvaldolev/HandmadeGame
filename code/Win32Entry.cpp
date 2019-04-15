@@ -3,11 +3,13 @@
 #include <xinput.h>
 
 #include <stdint.h>
-#include <stdio.h>
+#include <math.h>
 
 #define internal static
 #define global_variable static
 #define local_persist static
+
+#define Pi32 3.14159265359
 
 typedef int8_t int8;
 typedef int16_t int16;
@@ -19,6 +21,9 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+
+typedef float real32;
+typedef double real64;
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
 typedef X_INPUT_GET_STATE(XInputGetStateType);
@@ -61,6 +66,18 @@ struct Win32WindowDimension
     int height;
 };
 
+struct Win32SoundOutput
+{
+    int samplesPerSecond = 48000;
+    int toneHz = 256;
+    int toneVolume = 16000;
+    uint32 runningSampleIndex = 0;
+    int wavePeriod = samplesPerSecond / toneHz;
+    int halfWavePeriod = wavePeriod / 2;
+    int bytesPerSample = sizeof(int16) * 2;
+    int seconderyBufferSize = samplesPerSecond * bytesPerSample;
+};
+
 // TODO(yuval & eran): Remove global variable!!!
 global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
@@ -87,6 +104,61 @@ RenderGradient(Win32Backbuffer* buffer, int xOffset, int yOffset)
         }
 
         row += buffer->pitch;
+    }
+}
+
+internal void
+Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
+                     Win32SoundOutput* soundOutput,
+                     DWORD byteToLock, DWORD bytesToWrite)
+{
+    void* region1;
+    DWORD region1Size;
+    void* region2;
+    DWORD region2Size;
+    // NOTE(yuval): Locking the buffer before writing
+    if (SUCCEEDED(soundBuffer->Lock(byteToLock, bytesToWrite,
+                                    &region1, &region1Size,
+                                    &region2, &region2Size,
+                                    0)))
+    {
+        // TODO(yuval): Assert that region1Size & region2Size are
+        // an even multiply of the samples
+
+        // NOTE(yuval): Writing a square wave to region 1
+        int region1SampleCount = region1Size / soundOutput->bytesPerSample;
+        int16* sampleOut = (int16*)region1;
+        for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex)
+        {
+            real32 t = 2 * Pi32 * ((real32)soundOutput->runningSampleIndex / (real32)soundOutput->wavePeriod);
+            real32 sineValue = sinf(t);
+            int16 sampleValue = (int16)(sineValue * soundOutput->toneVolume);
+            *sampleOut++ = sampleValue;
+            *sampleOut++ = sampleValue;
+
+            ++soundOutput->runningSampleIndex;
+        }
+
+        // NOTE(yuval): Writing a square wave to region 2
+        int region2SampleCount = region2Size / soundOutput->bytesPerSample;
+        sampleOut = (int16*)region2;
+        for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex)
+        {
+            real32 t = 2 * Pi32 * ((real32)soundOutput->runningSampleIndex / (real32)soundOutput->wavePeriod);
+            real32 sineValue = sinf(t);
+            int16 sampleValue = (int16)(sineValue * soundOutput->toneVolume);
+            *sampleOut++ = sampleValue;
+            *sampleOut++ = sampleValue;
+
+            ++soundOutput->runningSampleIndex;
+        }
+
+        globalSeconderyBuffer->Unlock(region1, region1Size,
+                                      region2, region2Size);
+    }
+    else
+    {
+        // TODO(yuval & eran): Diagnostics
     }
 }
 
@@ -437,20 +509,26 @@ WinMain(HINSTANCE instance,
 
         if (window)
         {
-
-
             HDC deviceContext = GetDC(window);
 
-            int samplesPerSecond = 48000;
-            int toneHz = 1024;
-            int toneVolume = 16000;
-            int runningSampleIndex = 0;
-            int squareWavePeriod = samplesPerSecond / toneHz;
-            int halfSquareWavePeriod = squareWavePeriod / 2;
-            int bytesPerSample = sizeof(int16) * 2;
-            int seconderyBufferSize = samplesPerSecond * bytesPerSample;
+            Win32SoundOutput soundOutput = { };
 
-            Win32InitDSound(window, samplesPerSecond, seconderyBufferSize);
+            soundOutput.samplesPerSecond = 48000;
+            soundOutput.toneHz = 256;
+            soundOutput.toneVolume = 16000;
+            soundOutput.runningSampleIndex = 0;
+            soundOutput.wavePeriod = soundOutput.samplesPerSecond /
+                soundOutput.toneHz;
+            soundOutput.halfWavePeriod = soundOutput.wavePeriod / 2;
+            soundOutput.bytesPerSample = sizeof(int16) * 2;
+            soundOutput.seconderyBufferSize = soundOutput.samplesPerSecond *
+                soundOutput.bytesPerSample;
+
+            Win32InitDSound(window, soundOutput.samplesPerSecond,
+                            soundOutput.seconderyBufferSize);
+
+            Win32FillSoundBuffer(globalSeconderyBuffer, &soundOutput,
+                                 0, soundOutput.seconderyBufferSize);
             globalSeconderyBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             globalRunning = true;
@@ -533,61 +611,31 @@ WinMain(HINSTANCE instance,
                 // NOTE(yuval): DirectSound output test
                 DWORD playCursor;
                 DWORD writeCursor;
-
                 if (SUCCEEDED(globalSeconderyBuffer->
-                             GetCurrentPosition(&playCursor, &writeCursor)))
+                              GetCurrentPosition(&playCursor, &writeCursor)))
                 {
-                    DWORD lockOffset = (runningSampleIndex * bytesPerSample) % seconderyBufferSize;
+                    DWORD byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample)
+                        % soundOutput.seconderyBufferSize;
                     DWORD bytesToWrite;
 
-                    if (lockOffset > playCursor)
+                    bool32 isPlaying = true;
+
+                    if (byteToLock == playCursor)
                     {
-                        bytesToWrite = seconderyBufferSize - lockOffset;
+                        bytesToWrite = 0;
+                    }
+                    else if (byteToLock > playCursor)
+                    {
+                        bytesToWrite = soundOutput.seconderyBufferSize - byteToLock;
                         bytesToWrite += playCursor;
                     }
                     else
                     {
-                        bytesToWrite = playCursor - lockOffset;
+                        bytesToWrite = playCursor - byteToLock;
                     }
 
-                    void* region1;
-                    DWORD region1Size;
-                    void* region2;
-                    DWORD region2Size;
-
-                    // NOTE(yuval): Locking the buffer before writing
-                    if (SUCCEEDED(globalSeconderyBuffer->Lock(lockOffset, bytesToWrite,
-                        &region1, &region1Size,
-                        &region2, &region2Size,
-                        0)))
-                    {
-                        // NOTE(yuval): Writing a square wave to region 1
-                        int region1SampleCount = region1Size / bytesPerSample;
-                        int16* sampleOut = (int16*)region1;
-                        for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex)
-                        {
-                            int sampleValue = ((runningSampleIndex++ / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
-                            *sampleOut++ = sampleValue;
-                            *sampleOut++ = sampleValue;
-                        }
-
-                        // NOTE(yuval): Writing a square wave to region 2
-                        int region2SampleCount = region2Size / bytesPerSample;
-                        sampleOut = (int16*)region2;
-                        for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex)
-                        {
-                            int sampleValue = ((runningSampleIndex++ / halfSquareWavePeriod) % 2) ? toneVolume : -toneVolume;
-                            *sampleOut++ = sampleValue;
-                            *sampleOut++ = sampleValue;
-                        }
-
-                        globalSeconderyBuffer->Unlock(region1, region1Size,
-                                                      region2, region2Size);
-                    }
-                    else
-                    {
-                        // TODO(yuval & eran): Diagnostics
-                    }
+                    Win32FillSoundBuffer(globalSeconderyBuffer, &soundOutput,
+                                         byteToLock, bytesToWrite);
                 }
             }
         }
