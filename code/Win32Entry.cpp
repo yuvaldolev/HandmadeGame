@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <math.h>
 
+#include <stdio.h>
+
 #define internal static
 #define global_variable static
 #define local_persist static
@@ -278,6 +280,16 @@ Win32LoadXInput()
     }
 }
 
+// TODO(yuval & eran): This is temporary
+internal void
+Win32OpenConsole()
+{
+    AllocConsole();
+    freopen("CONIN$", "r", stdin);
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+}
+
 internal Win32WindowDimension
 Win32GetWindowDimension(HWND window)
 {
@@ -479,6 +491,9 @@ WinMain(HINSTANCE instance,
         LPSTR commandLine,
         int showCode)
 {
+    // TODO(yuval & eran): This is temporary
+    Win32OpenConsole();
+
     Win32LoadXInput();
 
     Win32ResizeDIBSection(&globalBackbuffer, 1280, 720);
