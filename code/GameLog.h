@@ -11,9 +11,17 @@ enum LogLevelEnum
 
 struct LogMsg
 {
-    const char* format;
-    char* formatted;
     LogLevelEnum level;
+    const char* logFileName;
+    size_t logFileLen;
+    const char* logFuncName;
+    size_t logFuncLen;
+    long logLine;
+    const char* format;
+    va_list argList;
+    char* formatted;
+    char* formattedAt;
+    umm remainingFormattingSpace;
 };
 
 #include "GameLogFormat.h"
@@ -33,11 +41,11 @@ void Log(LogLevelEnum level,
     __LINE__, \
     format, __VA_ARGS__)
 
-#define LogDebug(format, ...) LogInternal(LOG_LEVEL_DEBUG, format, __VA_ARGS__)
-#define LogInfo(format, ...) LogInternal(LOG_LEVEL_INFO, format, __VA_ARGS__)
-#define LogWarn(format, ...) LogInternal(LOG_LEVEL_WARN, format, __VA_ARGS__)
-#define LogError(format, ...) LogInternal(LOG_LEVEL_ERROR, format, __VA_ARGS__)
-#define LogFatal(format, ...) LogInternal(LOG_LEVEL_FATAL, format, __VA_ARGS__)
+#define LogDebug(format, ...) LogInternal(LogLevelDebug, format, __VA_ARGS__)
+#define LogInfo(format, ...) LogInternal(LogLevelInfo, format, __VA_ARGS__)
+#define LogWarn(format, ...) LogInternal(LogLevelWarn, format, __VA_ARGS__)
+#define LogError(format, ...) LogInternal(LogLevelError, format, __VA_ARGS__)
+#define LogFatal(format, ...) LogInternal(LogLevelFatal, format, __VA_ARGS__)
 
 #define GAMELOG_H
 #endif

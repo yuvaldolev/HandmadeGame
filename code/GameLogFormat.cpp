@@ -1,4 +1,80 @@
-global_variable LogFormats GlobalFormats = { };
+#define LOG_FORMAT_FN(name) void name(LogMsg* msg)
+typedef LOG_FORMAT_FN(LogFormatFnType);
+
+struct LogFormats
+{
+    LogFormatFnType** funcs;
+    umm funcsSize;
+
+    char** chars;
+    umm charsSize;
+    memory_index charsIndex;
+};
+
+global_variable LogFormats globalFormats = { };
+
+internal
+LOG_FORMAT_FN(LogFormatUserMessage)
+{
+    umm bytesWritten = FormatStringList(msg->formattedAt,
+                                        msg->remainingFormattingSpace,
+                                        msg->format, msg->argList);
+    msg->remainingFormattingSpace -= bytesWritten;
+    msg->formattedAt += bytesWritten;
+}
+
+/*
+LOG_FORMAT_FN(LogFormatNewLine);
+LOG_FORMAT_FN(LogFormatDate);
+LOG_FORMAT_FN(LogFormatFullFileName);
+LOG_FORMAT_FN(LogFormatFileName);
+LOG_FORMAT_FN(LogFormatFuncName);
+LOG_FORMAT_FN(LogFormatLineNum);
+LOG_FORMAT_FN(LogFormatLevelUppercase);
+LOG_FORMAT_FN(LogFormatLevelTitlecase);
+LOG_FORMAT_FN(LogFormatPercent);
+LOG_FORMAT_FN(LogFormatChars);
+*/
+
+internal void*
+LogFormatReallocateMemory(void* memory, umm newBlockCount,
+                          umm prevBlockCount, umm blockSize)
+{
+    // TODO(yuval & eran): Temporary! Replace dynamic memory allocation
+    // with memory arena
+    memory_index newMemorySize = blockSize * newBlockCount;
+    s8* newMemory = (s8*)malloc(newMemorySize);
+    ZeroSize(newMemory, newMemorySize);
+
+    if (memory)
+    {
+        Copy(memory, newMemory, blockSize * prevBlockCount);
+        free(memory);
+    }
+
+    return newMemory;
+}
+
+internal void
+LogFormatAppendChars(LogFormats* formats, char* chars)
+{
+    const int CHUNK_SIZE = 5;
+
+    umm* size = &formats->charsSize;
+    umm* index = &formats->charsIndex;
+
+    if (*index >= *size)
+    {
+        formats->chars = (char**)LogFormatReallocateMemory(formats->chars,
+                                                           *size + CHUNK_SIZE,
+                                                           *size,
+                                                           sizeof(char*));
+        *size += CHUNK_SIZE;
+    }
+
+    formats->chars[*index] = chars;
+    *(index)++;
+}
 
 internal void
 LogFormatAppendToken(LogFormats* formats, LogFormatFnType* token,
@@ -6,20 +82,62 @@ LogFormatAppendToken(LogFormats* formats, LogFormatFnType* token,
 {
     const int CHUNK_SIZE = 5;
 
-    if (index >= formats->size)
-    {
-        if (formats->formatFuncs)
-        {
-            free(formats->formatFuncs);
-        }
+    umm* size = &formats->funcsSize;
 
-        formats->formatFuncs = (LogFormatFnType**)
-            malloc(sizeof(LogFormatFnType*) * CHUNK_SIZE);
-        formats->size += CHUNK_SIZE;
+    if (*index >= *size)
+    {
+        formats->funcs = (LogFormatFnType**)
+            LogFormatReallocateMemory(formats->funcs,
+                                      *size + CHUNK_SIZE,
+                                      *size,
+                                      sizeof(LogFormatFnType*));
+        *size += CHUNK_SIZE;
     }
 
-    formats->formatFuncs[index] = token;
-    ++(*index);
+    formats->funcs[*index] = token;
+    *(index)++;
+}
+
+
+internal char
+LogFormatAdvanceChars(const char** fmt, u32 amount)
+{
+    *fmt += amount;
+    return **fmt;
+}
+
+internal char*
+LogFormatGetNextChars(const char** fmt)
+{
+    const u32 CHUNK_SIZE = 10;
+    char* result = 0;
+    umm resultLen = 0;
+    memory_index resultIndex = 0;
+
+    if (fmt && *fmt)
+    {
+        char currChar = **fmt;
+
+        while (currChar)
+        {
+            result[resultIndex++] = currChar;
+            currChar = LogFormatAdvanceChars(fmt, 1);
+
+            if (resultIndex >= resultLen - 1)
+            {
+                result[resultIndex++] = '\0';
+
+                result = (char*)
+                    LogFormatReallocateMemory(result,
+                                              resultLen + CHUNK_SIZE,
+                                              resultLen,
+                                              sizeof(char));
+                resultLen += CHUNK_SIZE;
+            }
+        }
+    }
+
+    return result;
 }
 
 internal LogFormatFnType*
@@ -31,9 +149,9 @@ LogFormatGetToken(const char tokenSpecifier)
     {
         case 'm':
         {
-            format = LogFormatMessage;
+            format = LogFormatUserMessage;
         } break;
-
+/*
         case 'n':
         {
             format = LogFormatNewLine;
@@ -78,7 +196,7 @@ LogFormatGetToken(const char tokenSpecifier)
         {
             format = LogFormatPercent;
         } break;
-
+*/
         default:
         {
             format = 0;
@@ -88,30 +206,33 @@ LogFormatGetToken(const char tokenSpecifier)
     return format;
 }
 
-internal char
-LogFormatAdvanceChars(const char** fmt, uint32 amount)
-{
-    *fmt += amount;
-    return **fmt;
-}
-
 internal LogFormatFnType*
 LogFormatGetNextToken(const char** fmt)
 {
     LogFormatFnType* format = 0;
-    char tokenSpecifier = **fmt;
 
-    if (tokenSpecifier == '%')
+    if (fmt)
     {
-        tokenSpecifier = LogFormatAdvanceChars(fmt, 1);
-        format = LogFormatGetToken(tokenSpecifier);
+        char tokenSpecifier = **fmt;
+
+        if (tokenSpecifier == '%')
+        {
+            tokenSpecifier = LogFormatAdvanceChars(fmt, 1);
+            format = LogFormatGetToken(tokenSpecifier);
+        }
+        else
+        {
+            /*format = LogFormatChars;
+            char* chars = LogFormatGetNextChars(fmt);
+            LogFormatAppendChars(&GlobalFormats, chars);*/
+        }
     }
 
     return format;
 }
 
-LogFormats
-LogFormatPattern(const char* fmt)
+void
+LogFormatSetPattern(const char* fmt)
 {
     if (fmt)
     {
@@ -121,11 +242,24 @@ LogFormatPattern(const char* fmt)
 
         while (token)
         {
-            LogFormatAppendToken(&GlobalFormats, token, &currFormatIndex);
+            LogFormatAppendToken(&globalFormats, token, &currFormatIndex);
             token = LogFormatGetNextToken(&fmt);
         }
-    }
 
-    return formats;
+        globalFormats.charsIndex = 0;
+    }
+}
+
+void
+LogFormatMessage(LogMsg* msg)
+{
+    LogFormatFnType** format = globalFormats.funcs;
+    umm size = globalFormats.funcsSize;
+
+    while (*format && size--)
+    {
+        (*format)(msg);
+        format++;
+    }
 }
 
