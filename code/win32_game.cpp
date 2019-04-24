@@ -535,6 +535,8 @@ WinMain(HINSTANCE instance,
         LPSTR commandLine,
         s32 showCode)
 {
+    GameStartup();
+    
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);
     s64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
