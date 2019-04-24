@@ -2,30 +2,29 @@
 #include <dsound.h>
 #include <xinput.h>
 
-#include <stdint.h>
 #include <math.h>
 
-#include <stdio.h>
+#include "Game.cpp"
 
-#define internal static
-#define global_variable static
-#define local_persist static
+/*
+  TODO(yuval & eran): What is left to be done in the platform layer:
+  * Saved game location
+  * Get a handle to our own executable file
+  * Asset loading
+  * Threading (launching a thread or multiple threads)
+  * Raw Input (support multiple keyboards in particular awsd keys)
+  * Sleep / timeBeginPeriod
+  * ClipCursor() (For multi monitor support)
+  * Fullscreen support
+  * WM_SETCURSOR (control cursor sensitivity)
+  * QueryCancelAutoplay
+  * WM_ACTIVATEAPP (for when we are not the active application)
+  * Blit speed improvements (BitBlt)
+  * Hardware Accelaration (OpenGL or Direct3D [DirectX] or Both)
+  * GetKeyboardLayout (for international keyboards)
 
-#define Pi32 3.14159265359
-
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-typedef int32 bool32;
-
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
-
-typedef float real32;
-typedef double real64;
+  This is a partial list
+ */
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
 typedef X_INPUT_GET_STATE(XInputGetStateType);
@@ -56,51 +55,108 @@ struct Win32Backbuffer
 {
     BITMAPINFO info;
     void* memory;
-    int width;
-    int height;
-    int pitch;
-    int bytesPerPixel;
+    s32 width;
+    s32 height;
+    s32 pitch;
+    s32 bytesPerPixel;
 };
 
 struct Win32WindowDimension
 {
-    int width;
-    int height;
+    s32 width;
+    s32 height;
 };
 
 struct Win32SoundOutput
 {
-    int samplesPerSecond = 48000;
-    int toneHz = 256;
-    int toneVolume = 16000;
-    uint32 runningSampleIndex = 0;
-    int wavePeriod = samplesPerSecond / toneHz;
-    int halfWavePeriod = wavePeriod / 2;
-    int bytesPerSample = sizeof(int16) * 2;
-    int seconderyBufferSize = samplesPerSecond * bytesPerSample;
+    s32 samplesPerSecond = 48000;
+    s32 toneHz = 256;
+    s32 toneVolume = 16000;
+    u32 runningSampleIndex = 0;
+    s32 wavePeriod = samplesPerSecond / toneHz;
+    s32 halfWavePeriod = wavePeriod / 2;
+    s32 bytesPerSample = sizeof(s16) * 2;
+    s32 seconderyBufferSize = samplesPerSecond * bytesPerSample;
 };
 
-// TODO(yuval & eran): Remove global variable!!!
+// TODO(yuval & eran): Remove global variables!!!
 global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
 global_variable IDirectSoundBuffer* globalSeconderyBuffer;
 
-global_variable int globalXOffset = 0;
-global_variable int globalYOffset = 0;
+global_variable s32 globalXOffset = 0;
+global_variable s32 globalYOffset = 0;
+
+// TODO(yuval & eran): Temporary!
+void
+PlatformWriteLogMsgInColor(LogMsg* msg)
+{
+    const WORD COLOR_CYAN = FOREGROUND_GREEN | FOREGROUND_BLUE;
+    const WORD COLOR_GREEN = FOREGROUND_GREEN;
+    const WORD COLOR_BOLD_YELLOW = FOREGROUND_RED | FOREGROUND_GREEN |
+        FOREGROUND_INTENSITY;
+    const WORD COLOR_BOLD_RED = FOREGROUND_RED | FOREGROUND_INTENSITY;
+    const WORD COLOR_WHITE_ON_RED = BACKGROUND_RED | FOREGROUND_RED |
+        FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+
+    HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (console)
+    {
+        CONSOLE_SCREEN_BUFFER_INFO origBufferInfo;
+        if (GetConsoleScreenBufferInfo(console, &origBufferInfo))
+        {
+            WORD attrib;
+            switch (msg->level)
+            {
+                case LogLevelDebug: { attrib = COLOR_CYAN; } break;
+                case LogLevelInfo: { attrib = COLOR_GREEN; } break;
+                case LogLevelWarn: { attrib = COLOR_BOLD_YELLOW; } break;
+                case LogLevelError: { attrib = COLOR_BOLD_RED; } break;
+                case LogLevelFatal: { attrib = COLOR_WHITE_ON_RED;} break;
+                default: { attrib = 0; } break;
+            }
+
+            SetConsoleTextAttribute(console, attrib);
+            WriteConsoleA(console, msg->formatted,
+                          msg->maxSize - msg->remainingFormattingSpace,
+                          0, 0);
+            SetConsoleTextAttribute(console, origBufferInfo.wAttributes);
+        }
+    }
+}
+
+PlatformDateTime
+PlatformGetDateTime()
+{
+    SYSTEMTIME localTime;
+    GetLocalTime(&localTime);
+
+    PlatformDateTime dateTime;
+    dateTime.day = localTime.wDay;
+    dateTime.month = localTime.wMonth;
+    dateTime.year = localTime.wYear;
+    dateTime.hour = localTime.wHour;
+    dateTime.minute = localTime.wMinute;
+    dateTime.second = localTime.wSecond;
+    dateTime.milliseconds = localTime.wMilliseconds;
+
+    return dateTime;
+}
 
 internal void
-RenderGradient(Win32Backbuffer* buffer, int xOffset, int yOffset)
+RenderGradient(Win32Backbuffer* buffer, s32 xOffset, s32 yOffset)
 {
-    uint8* row = (uint8*)buffer->memory;
+    u8* row = (u8*)buffer->memory;
 
-    for (int y = 0; y < buffer->height; ++y)
+    for (s32 y = 0; y < buffer->height; ++y)
     {
-        uint32* pixel = (uint32*)row;
+        u32* pixel = (u32*)row;
 
-        for (int x = 0; x < buffer->width; ++x)
+        for (s32 x = 0; x < buffer->width; ++x)
         {
-            uint8 Blue = (uint8)(x + xOffset);
-            uint8 Green = (uint8)(y + yOffset);
+            u8 Blue = (u8)(x + xOffset);
+            u8 Green = (u8)(y + yOffset);
 
             *pixel++ = (Green << 8) | Blue;
         }
@@ -128,13 +184,13 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
         // an even multiply of the samples
 
         // NOTE(yuval): Writing a square wave to region 1
-        int region1SampleCount = region1Size / soundOutput->bytesPerSample;
-        int16* sampleOut = (int16*)region1;
+        s32 region1SampleCount = region1Size / soundOutput->bytesPerSample;
+        s16* sampleOut = (s16*)region1;
         for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex)
         {
-            real32 t = 2 * Pi32 * ((real32)soundOutput->runningSampleIndex / (real32)soundOutput->wavePeriod);
-            real32 sineValue = sinf(t);
-            int16 sampleValue = (int16)(sineValue * soundOutput->toneVolume);
+            r32 t = 2 * Pi32 * ((r32)soundOutput->runningSampleIndex / (r32)soundOutput->wavePeriod);
+            r32 sineValue = sinf(t);
+            s16 sampleValue = (s16)(sineValue * soundOutput->toneVolume);
             *sampleOut++ = sampleValue;
             *sampleOut++ = sampleValue;
 
@@ -142,13 +198,13 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
         }
 
         // NOTE(yuval): Writing a square wave to region 2
-        int region2SampleCount = region2Size / soundOutput->bytesPerSample;
-        sampleOut = (int16*)region2;
+        s32 region2SampleCount = region2Size / soundOutput->bytesPerSample;
+        sampleOut = (s16*)region2;
         for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex)
         {
-            real32 t = 2 * Pi32 * ((real32)soundOutput->runningSampleIndex / (real32)soundOutput->wavePeriod);
-            real32 sineValue = sinf(t);
-            int16 sampleValue = (int16)(sineValue * soundOutput->toneVolume);
+            r32 t = 2 * Pi32 * ((r32)soundOutput->runningSampleIndex / (r32)soundOutput->wavePeriod);
+            r32 sineValue = sinf(t);
+            s16 sampleValue = (s16)(sineValue * soundOutput->toneVolume);
             *sampleOut++ = sampleValue;
             *sampleOut++ = sampleValue;
 
@@ -160,12 +216,13 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
     }
     else
     {
-        // TODO(yuval & eran): Diagnostics
+        // TODO(yuval & eran): Better log
+        //LogError("Buffer Locking Failed!");
     }
 }
 
 internal void
-Win32InitDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
+Win32InitDSound(HWND window, s32 samplesPerSecond, s32 bufferSize)
 {
     // NOTE(yuval): Loading the direct sound library
     HMODULE DSoundLibrary = LoadLibrary("dsound.dll");
@@ -209,17 +266,17 @@ Win32InitDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
                     if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
                     {
                         // NOTE(yuval): Finished setting the format
-                        OutputDebugStringA("Primary buffer format was set\n");
+                        LogInfo("Primary buffer format was set");
                     }
                     else
                     {
-                        // TODO(yuval & eran): Diagnostics
+                        LogError("Primary Buffer Formatting Failed!");
                     }
                 }
             }
             else
             {
-                // TODO(yuval & eran): Diagnostics
+                LogError("DirectSound Cooperatrive Level Setting Failed!");
             }
 
             // NOTE(yuval): Creating the secondery buffer
@@ -232,17 +289,17 @@ Win32InitDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
             if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription,
                 &globalSeconderyBuffer, 0)))
             {
-                OutputDebugStringA("Second Buffer Created!\n");
+                LogInfo("The secondery sound buffer was created");
             }
         }
         else
         {
-            // TODO(yuval & eran): Diagnostics
+            LogError("DirectSound Object Creation Failed!");
         }
     }
     else
     {
-        // TODO(yuval & eran): Diagnostics
+        LogError("dsound.dll Loading Failed!");
     }
 }
 
@@ -276,7 +333,7 @@ Win32LoadXInput()
     }
     else
     {
-        // TODO(yuval & eran): Diagnostics
+        LogError("Failed To Load xinput1_4.dll and xinput1_3.dll!");
     }
 }
 
@@ -306,7 +363,7 @@ Win32GetWindowDimension(HWND window)
 }
 
 internal void
-Win32ResizeDIBSection(Win32Backbuffer* buffer, int width, int height)
+Win32ResizeDIBSection(Win32Backbuffer* buffer, s32 width, s32 height)
 {
     if (buffer->memory)
     {
@@ -324,7 +381,7 @@ Win32ResizeDIBSection(Win32Backbuffer* buffer, int width, int height)
     buffer->info.bmiHeader.biBitCount = 32;
     buffer->info.bmiHeader.biCompression = BI_RGB;
 
-    int bitmapMemorySize = buffer->width * buffer->height * buffer->bytesPerPixel;
+    s32 bitmapMemorySize = buffer->width * buffer->height * buffer->bytesPerPixel;
 
     buffer->memory = VirtualAlloc(0, bitmapMemorySize,
                                 MEM_COMMIT, PAGE_READWRITE);
@@ -334,7 +391,7 @@ Win32ResizeDIBSection(Win32Backbuffer* buffer, int width, int height)
 
 internal void
 Win32DisplayBackbufferInWindow(HDC deviceContext, Win32Backbuffer* buffer,
-                               int windowWidth, int windowHeight)
+                               s32 windowWidth, s32 windowHeight)
 {
     StretchDIBits(deviceContext,
                   0, 0, windowWidth, windowHeight,
@@ -372,11 +429,11 @@ Win32MainWindowCallback(HWND window, UINT message,
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            uint32 keyCode = wParam;
+            u32 keyCode = wParam;
             bool wasDown = (lParam & (1 << 30)) != 0;
             bool isDown = (lParam & (1 << 31)) == 0;
 
-            bool32 altIsDown = lParam & (1 << 29);
+            b32 altIsDown = lParam & (1 << 29);
             if (keyCode == VK_F4 && altIsDown)
             {
                 globalRunning = false;
@@ -442,19 +499,6 @@ Win32MainWindowCallback(HWND window, UINT message,
 
                     case VK_SPACE:
                     {
-                        OutputDebugStringA("Space: ");
-
-                        if (wasDown)
-                        {
-                            OutputDebugStringA("WasDown ");
-                        }
-
-                        if (isDown)
-                        {
-                            OutputDebugStringA("IsDown");
-                        }
-
-                        OutputDebugStringA("\n");
                     } break;
                 }
             }
@@ -462,7 +506,7 @@ Win32MainWindowCallback(HWND window, UINT message,
 
         case WM_ACTIVATEAPP:
         {
-            OutputDebugStringA("Window Refocused\n");
+            LogDebug("Window Refocused");
         } break;
 
         case WM_PAINT:
@@ -485,14 +529,21 @@ Win32MainWindowCallback(HWND window, UINT message,
     return result;
 }
 
-int WINAPI
+s32 WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE prevInstance,
         LPSTR commandLine,
-        int showCode)
+        s32 showCode)
 {
+    LARGE_INTEGER perfCountFrequencyResult;
+    QueryPerformanceFrequency(&perfCountFrequencyResult);
+    s64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
+
     // TODO(yuval & eran): This is temporary
     Win32OpenConsole();
+
+    // TODO(yuval & eran): Move this to another function
+    LogInit(LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
 
     Win32LoadXInput();
 
@@ -535,7 +586,7 @@ WinMain(HINSTANCE instance,
             soundOutput.wavePeriod = soundOutput.samplesPerSecond /
                 soundOutput.toneHz;
             soundOutput.halfWavePeriod = soundOutput.wavePeriod / 2;
-            soundOutput.bytesPerSample = sizeof(int16) * 2;
+            soundOutput.bytesPerSample = sizeof(s16) * 2;
             soundOutput.seconderyBufferSize = soundOutput.samplesPerSecond *
                 soundOutput.bytesPerSample;
 
@@ -547,6 +598,11 @@ WinMain(HINSTANCE instance,
             globalSeconderyBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             globalRunning = true;
+
+            u64 lastCycleCount = __rdtsc();
+
+            LARGE_INTEGER lastCounter;
+            QueryPerformanceCounter(&lastCounter);
 
             while (globalRunning)
             {
@@ -563,7 +619,9 @@ WinMain(HINSTANCE instance,
                     DispatchMessageA(&message);
                 }
 
-                for (DWORD controller = 0; controller < XUSER_MAX_COUNT; ++controller)
+                for (DWORD controller = 0;
+                     controller < XUSER_MAX_COUNT;
+                     ++controller)
                 {
                     XINPUT_STATE controllerState;
 
@@ -587,8 +645,8 @@ WinMain(HINSTANCE instance,
                         bool xButton = pad->wButtons & XINPUT_GAMEPAD_X;
                         bool yButton = pad->wButtons & XINPUT_GAMEPAD_Y;
 
-                        int16 stickX = pad->sThumbLX;
-                        int16 stickY = pad->sThumbLY;
+                        s16 stickX = pad->sThumbLX;
+                        s16 stickY = pad->sThumbLY;
 
                         if (aButton)
                         {
@@ -613,7 +671,8 @@ WinMain(HINSTANCE instance,
                     else
                     {
                         // NOTE(yuval & eran): The contorller is not connected
-                        // TODO(yuval & eran): Diagnostics
+                        // TODO(yuval & eran): Better log
+                        // LogInfo("Controller: %u is not connected!", controller);
                     }
                 }
 
@@ -633,7 +692,7 @@ WinMain(HINSTANCE instance,
                         % soundOutput.seconderyBufferSize;
                     DWORD bytesToWrite;
 
-                    bool32 isPlaying = true;
+                    b32 isPlaying = true;
 
                     if (byteToLock == playCursor)
                     {
@@ -652,13 +711,33 @@ WinMain(HINSTANCE instance,
                     Win32FillSoundBuffer(globalSeconderyBuffer, &soundOutput,
                                          byteToLock, bytesToWrite);
                 }
+
+                u64 endCycleCount = __rdtsc();
+
+                LARGE_INTEGER endCounter;
+                QueryPerformanceCounter(&endCounter);
+
+                u64 cyclesElapsed = endCycleCount - lastCycleCount;
+                s64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
+
+                r32 msPerFrame = (1000.0f * (r32)counterElapsed) / (r32)perfCountFrequency;
+                r32 fps = (r32)perfCountFrequency / (r32)counterElapsed;
+                r32 mcpf = (r32)cyclesElapsed / 1000000.0f;
+
+                LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
+
+                lastCycleCount = endCycleCount;
+                lastCounter = endCounter;
             }
         }
     }
     else
     {
-        // TODO(yuval & eran): Logging!
+        LogError("Window Class Registration Failed!");
     }
+
+    // TODO(yuval & eran): Move this to another function
+    LogFini();
 
     return 0;
 }
