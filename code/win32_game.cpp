@@ -1,10 +1,11 @@
+#include "game.cpp"
+
 #include <windows.h>
 #include <dsound.h>
 #include <xinput.h>
 
 #include <math.h>
-
-#include "Game.cpp"
+#include <stdio.h> // TODO(yuvai & eran): Remove this temporary include
 
 /*
   TODO(yuval & eran): What is left to be done in the platform layer:
@@ -142,27 +143,6 @@ PlatformGetDateTime()
     dateTime.milliseconds = localTime.wMilliseconds;
 
     return dateTime;
-}
-
-internal void
-RenderGradient(Win32Backbuffer* buffer, s32 xOffset, s32 yOffset)
-{
-    u8* row = (u8*)buffer->memory;
-
-    for (s32 y = 0; y < buffer->height; ++y)
-    {
-        u32* pixel = (u32*)row;
-
-        for (s32 x = 0; x < buffer->width; ++x)
-        {
-            u8 Blue = (u8)(x + xOffset);
-            u8 Green = (u8)(y + yOffset);
-
-            *pixel++ = (Green << 8) | Blue;
-        }
-
-        row += buffer->pitch;
-    }
 }
 
 internal void
@@ -535,8 +515,6 @@ WinMain(HINSTANCE instance,
         LPSTR commandLine,
         s32 showCode)
 {
-    GameStartup();
-    
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);
     s64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
@@ -601,10 +579,12 @@ WinMain(HINSTANCE instance,
 
             globalRunning = true;
 
+            #if 0
             u64 lastCycleCount = __rdtsc();
 
             LARGE_INTEGER lastCounter;
             QueryPerformanceCounter(&lastCounter);
+            #endif
 
             while (globalRunning)
             {
@@ -678,8 +658,13 @@ WinMain(HINSTANCE instance,
                     }
                 }
 
-                // NOTE(yuval): Render test
-                RenderGradient(&globalBackbuffer, globalXOffset, globalYOffset);
+                GameOffscreenBuffer buffer = { };
+                buffer.memory = globalBackbuffer.memory;
+                buffer.width = globalBackbuffer.width;
+                buffer.height = globalBackbuffer.height;
+                buffer.pitch = globalBackbuffer.pitch;
+
+                GameUpdateAndRender(&buffer);
 
                 Win32WindowDimension dim = Win32GetWindowDimension(window);
                 Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
@@ -714,6 +699,7 @@ WinMain(HINSTANCE instance,
                                          byteToLock, bytesToWrite);
                 }
 
+                #if 0
                 u64 endCycleCount = __rdtsc();
 
                 LARGE_INTEGER endCounter;
@@ -730,6 +716,7 @@ WinMain(HINSTANCE instance,
 
                 lastCycleCount = endCycleCount;
                 lastCounter = endCounter;
+                #endif
             }
         }
     }

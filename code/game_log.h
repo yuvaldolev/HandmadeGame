@@ -23,7 +23,7 @@ struct LogMsg
     umm maxSize;
 };
 
-#include "GameLogFormat.h"
+#include "game_log_format.h"
 
 void
 LogInit(LogLevelEnum minLevel, const char* logFmt);

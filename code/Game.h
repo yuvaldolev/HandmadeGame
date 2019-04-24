@@ -1,9 +1,10 @@
 #if !defined(GAMEH)
 
-#include "GameTypes.h"
-#include "GameShared.h"
-#include "GameLog.h"
+#include "game_types.h"
+#include "game_shared.h"
+#include "game_log.h"
 
+// NOTE(yuval): Services that the platform provides to the game
 struct PlatformDateTime
 {
     u16 day;
@@ -22,6 +23,24 @@ PlatformGetDateTime();
 // TODO(yuval & eran): Temporary!
 void
 PlatformWriteLogMsgInColor(LogMsg* msg);
+
+// NOTE(yuval): Services that the game provides to the platform
+struct GameOffscreenBuffer
+{
+    void* memory;
+    s32 width;
+    s32 height;
+    s32 pitch;
+};
+
+/* GameUpdateAndRender get 4 thing from the Platform:
+   1. Timing
+   2. Controller/Keyboard input
+   3. Bitmap buffer to use
+   4. Sound buffer to use
+*/
+void
+GameUpdateAndRender(GameOffscreenBuffer* buffer);
 
 #define GAMEH
 #endif

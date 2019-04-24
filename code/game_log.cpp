@@ -1,6 +1,4 @@
-#include "GameLogFormat.cpp"
-
-#include <stdio.h>
+#include "game_log_format.cpp"
 
 global_variable LogLevelEnum GlobalMinLevel;
 

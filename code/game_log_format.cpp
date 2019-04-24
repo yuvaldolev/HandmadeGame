@@ -1,3 +1,5 @@
+#include <stdlib.h> // TODO(yuval & eran): Remove this
+
 #define LOG_FORMAT_FN(name) void name(LogMsg* msg, struct LogFormat* format)
 typedef LOG_FORMAT_FN(LogFormatFnType);
 
