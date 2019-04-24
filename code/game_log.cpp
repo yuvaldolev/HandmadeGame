@@ -12,11 +12,17 @@ LogInit(LogLevelEnum minLevel, const char* logFmt)
 }
 
 void
+LogFini()
+{
+    LogFormatClean();
+}
+
+void
 Log(LogLevelEnum level,
-         const char* logFileName, size_t logFileLen,
-         const char* logFuncName, size_t logFuncLen,
-         long logLine,
-         const char* format, ...)
+    const char* logFileName,
+    const char* logFnName,
+    long logLine,
+    const char* format, ...)
 {
     if (level >= GlobalMinLevel)
     {
@@ -30,22 +36,21 @@ Log(LogLevelEnum level,
 
         LogMsg msg = { };
         msg.level = level;
-        msg.logFileName = logFileName;
-        msg.logFileLen = logFileLen;
-        msg.logFuncName = logFuncName;
-        msg.logFuncLen = logFuncLen;
-        msg.logLine = logLine;
+        msg.file = logFileName;
+        msg.fn = logFnName;
+        msg.line = logLine;
         msg.format = format;
         msg.argList = argList;
         msg.formatted = formatted;
         msg.formattedAt = formatted;
         msg.remainingFormattingSpace = FORMATTED_SIZE;
+        msg.maxSize = FORMATTED_SIZE;
 
         // NOTE(yuval): Format Message
         LogFormatMessage(&msg);
 
         // NOTE(yuval): Log Message In Color
-        printf("%s\n", msg.formatted);
+        PlatformWriteLogMsgInColor(&msg);
 
         // NOTE(yuval): End VA LIST
         va_end(argList);

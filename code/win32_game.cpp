@@ -2,10 +2,29 @@
 #include <dsound.h>
 #include <xinput.h>
 
-#include <stdio.h> // TODO(yuval & eran): TEMPORARY
 #include <math.h>
 
 #include "Game.cpp"
+
+/*
+  TODO(yuval & eran): What is left to be done in the platform layer:
+  * Saved game location
+  * Get a handle to our own executable file
+  * Asset loading
+  * Threading (launching a thread or multiple threads)
+  * Raw Input (support multiple keyboards in particular awsd keys)
+  * Sleep / timeBeginPeriod
+  * ClipCursor() (For multi monitor support)
+  * Fullscreen support
+  * WM_SETCURSOR (control cursor sensitivity)
+  * QueryCancelAutoplay
+  * WM_ACTIVATEAPP (for when we are not the active application)
+  * Blit speed improvements (BitBlt)
+  * Hardware Accelaration (OpenGL or Direct3D [DirectX] or Both)
+  * GetKeyboardLayout (for international keyboards)
+
+  This is a partial list
+ */
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
 typedef X_INPUT_GET_STATE(XInputGetStateType);
@@ -60,13 +79,70 @@ struct Win32SoundOutput
     s32 seconderyBufferSize = samplesPerSecond * bytesPerSample;
 };
 
-// TODO(yuval & eran): Remove global variable!!!
+// TODO(yuval & eran): Remove global variables!!!
 global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
 global_variable IDirectSoundBuffer* globalSeconderyBuffer;
 
 global_variable s32 globalXOffset = 0;
 global_variable s32 globalYOffset = 0;
+
+// TODO(yuval & eran): Temporary!
+void
+PlatformWriteLogMsgInColor(LogMsg* msg)
+{
+    const WORD COLOR_CYAN = FOREGROUND_GREEN | FOREGROUND_BLUE;
+    const WORD COLOR_GREEN = FOREGROUND_GREEN;
+    const WORD COLOR_BOLD_YELLOW = FOREGROUND_RED | FOREGROUND_GREEN |
+        FOREGROUND_INTENSITY;
+    const WORD COLOR_BOLD_RED = FOREGROUND_RED | FOREGROUND_INTENSITY;
+    const WORD COLOR_WHITE_ON_RED = BACKGROUND_RED | FOREGROUND_RED |
+        FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+
+    HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (console)
+    {
+        CONSOLE_SCREEN_BUFFER_INFO origBufferInfo;
+        if (GetConsoleScreenBufferInfo(console, &origBufferInfo))
+        {
+            WORD attrib;
+            switch (msg->level)
+            {
+                case LogLevelDebug: { attrib = COLOR_CYAN; } break;
+                case LogLevelInfo: { attrib = COLOR_GREEN; } break;
+                case LogLevelWarn: { attrib = COLOR_BOLD_YELLOW; } break;
+                case LogLevelError: { attrib = COLOR_BOLD_RED; } break;
+                case LogLevelFatal: { attrib = COLOR_WHITE_ON_RED;} break;
+                default: { attrib = 0; } break;
+            }
+
+            SetConsoleTextAttribute(console, attrib);
+            WriteConsoleA(console, msg->formatted,
+                          msg->maxSize - msg->remainingFormattingSpace,
+                          0, 0);
+            SetConsoleTextAttribute(console, origBufferInfo.wAttributes);
+        }
+    }
+}
+
+PlatformDateTime
+PlatformGetDateTime()
+{
+    SYSTEMTIME localTime;
+    GetLocalTime(&localTime);
+
+    PlatformDateTime dateTime;
+    dateTime.day = localTime.wDay;
+    dateTime.month = localTime.wMonth;
+    dateTime.year = localTime.wYear;
+    dateTime.hour = localTime.wHour;
+    dateTime.minute = localTime.wMinute;
+    dateTime.second = localTime.wSecond;
+    dateTime.milliseconds = localTime.wMilliseconds;
+
+    return dateTime;
+}
 
 internal void
 RenderGradient(Win32Backbuffer* buffer, s32 xOffset, s32 yOffset)
@@ -140,7 +216,8 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
     }
     else
     {
-        // TODO(yuval & eran): Diagnostics
+        // TODO(yuval & eran): Better log
+        //LogError("Buffer Locking Failed!");
     }
 }
 
@@ -189,17 +266,17 @@ Win32InitDSound(HWND window, s32 samplesPerSecond, s32 bufferSize)
                     if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
                     {
                         // NOTE(yuval): Finished setting the format
-                        OutputDebugStringA("Primary buffer format was set\n");
+                        LogInfo("Primary buffer format was set");
                     }
                     else
                     {
-                        // TODO(yuval & eran): Diagnostics
+                        LogError("Primary Buffer Formatting Failed!");
                     }
                 }
             }
             else
             {
-                // TODO(yuval & eran): Diagnostics
+                LogError("DirectSound Cooperatrive Level Setting Failed!");
             }
 
             // NOTE(yuval): Creating the secondery buffer
@@ -212,17 +289,17 @@ Win32InitDSound(HWND window, s32 samplesPerSecond, s32 bufferSize)
             if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription,
                 &globalSeconderyBuffer, 0)))
             {
-                OutputDebugStringA("Second Buffer Created!\n");
+                LogInfo("The secondery sound buffer was created");
             }
         }
         else
         {
-            // TODO(yuval & eran): Diagnostics
+            LogError("DirectSound Object Creation Failed!");
         }
     }
     else
     {
-        // TODO(yuval & eran): Diagnostics
+        LogError("dsound.dll Loading Failed!");
     }
 }
 
@@ -256,7 +333,7 @@ Win32LoadXInput()
     }
     else
     {
-        // TODO(yuval & eran): Diagnostics
+        LogError("Failed To Load xinput1_4.dll and xinput1_3.dll!");
     }
 }
 
@@ -422,19 +499,6 @@ Win32MainWindowCallback(HWND window, UINT message,
 
                     case VK_SPACE:
                     {
-                        OutputDebugStringA("Space: ");
-
-                        if (wasDown)
-                        {
-                            OutputDebugStringA("WasDown ");
-                        }
-
-                        if (isDown)
-                        {
-                            OutputDebugStringA("IsDown");
-                        }
-
-                        OutputDebugStringA("\n");
                     } break;
                 }
             }
@@ -442,7 +506,7 @@ Win32MainWindowCallback(HWND window, UINT message,
 
         case WM_ACTIVATEAPP:
         {
-            OutputDebugStringA("Window Refocused\n");
+            LogDebug("Window Refocused");
         } break;
 
         case WM_PAINT:
@@ -471,13 +535,15 @@ WinMain(HINSTANCE instance,
         LPSTR commandLine,
         s32 showCode)
 {
+    LARGE_INTEGER perfCountFrequencyResult;
+    QueryPerformanceFrequency(&perfCountFrequencyResult);
+    s64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
+
     // TODO(yuval & eran): This is temporary
     Win32OpenConsole();
 
-    //LogInit(LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
-    LogInit(LogLevelDebug, "%m");
-
-    LogDebug("Name: %s, Age: %d", "Bob", 40);
+    // TODO(yuval & eran): Move this to another function
+    LogInit(LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
 
     Win32LoadXInput();
 
@@ -533,6 +599,11 @@ WinMain(HINSTANCE instance,
 
             globalRunning = true;
 
+            u64 lastCycleCount = __rdtsc();
+
+            LARGE_INTEGER lastCounter;
+            QueryPerformanceCounter(&lastCounter);
+
             while (globalRunning)
             {
                 MSG message;
@@ -548,7 +619,9 @@ WinMain(HINSTANCE instance,
                     DispatchMessageA(&message);
                 }
 
-                for (DWORD controller = 0; controller < XUSER_MAX_COUNT; ++controller)
+                for (DWORD controller = 0;
+                     controller < XUSER_MAX_COUNT;
+                     ++controller)
                 {
                     XINPUT_STATE controllerState;
 
@@ -598,7 +671,8 @@ WinMain(HINSTANCE instance,
                     else
                     {
                         // NOTE(yuval & eran): The contorller is not connected
-                        // TODO(yuval & eran): Diagnostics
+                        // TODO(yuval & eran): Better log
+                        // LogInfo("Controller: %u is not connected!", controller);
                     }
                 }
 
@@ -637,13 +711,33 @@ WinMain(HINSTANCE instance,
                     Win32FillSoundBuffer(globalSeconderyBuffer, &soundOutput,
                                          byteToLock, bytesToWrite);
                 }
+
+                u64 endCycleCount = __rdtsc();
+
+                LARGE_INTEGER endCounter;
+                QueryPerformanceCounter(&endCounter);
+
+                u64 cyclesElapsed = endCycleCount - lastCycleCount;
+                s64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
+
+                r32 msPerFrame = (1000.0f * (r32)counterElapsed) / (r32)perfCountFrequency;
+                r32 fps = (r32)perfCountFrequency / (r32)counterElapsed;
+                r32 mcpf = (r32)cyclesElapsed / 1000000.0f;
+
+                LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
+
+                lastCycleCount = endCycleCount;
+                lastCounter = endCounter;
             }
         }
     }
     else
     {
-        // TODO(yuval & eran): Logging!
+        LogError("Window Class Registration Failed!");
     }
+
+    // TODO(yuval & eran): Move this to another function
+    LogFini();
 
     return 0;
 }

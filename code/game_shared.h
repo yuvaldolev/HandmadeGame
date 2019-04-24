@@ -10,6 +10,9 @@
 
 #define ReadVarArgFloat(length, argList) va_arg(argList, r64)
 
+#define CopyArray(source, dest, count) Copy(source, dest, \
+    sizeof(*source) * count)
+
 struct FormatDest
 {
     char* at;
@@ -45,8 +48,49 @@ Copy(void* sourceInit, void* destInit, memory_index size)
     return destInit;
 }
 
-#define CopyArray(source, dest, count) Copy(source, dest, \
-    sizeof(*source) * count)
+internal char
+ToLowercase(char value)
+{
+    char result = value;
+
+    if ((result >= 'A') && (result <= 'Z'))
+    {
+        result += 'a' - 'A';
+    }
+
+    return result;
+}
+
+internal void
+ToLowercase(char* value)
+{
+    while (*value)
+    {
+        *value++ = ToLowercase(*value);
+    }
+}
+
+internal char
+ToUppercase(char value)
+{
+    char result = value;
+
+    if ((result >= 'a') && (result <= 'z'))
+    {
+        result -= 'a' - 'A';
+    }
+
+    return result;
+}
+
+internal void
+ToUppercase(char* value)
+{
+    while (*value)
+    {
+        *value++ = ToUppercase(*value);
+    }
+}
 
 internal void
 OutChar(FormatDest* dest, char value)
@@ -58,12 +102,31 @@ OutChar(FormatDest* dest, char value)
     }
 }
 
-internal void OutChars(FormatDest* dest, char* value)
+internal void
+OutChars(FormatDest* dest, const char* value)
 {
     // TODO(yuval & eran): Speed this up
     while (*value)
     {
         OutChar(dest, *value++);
+    }
+}
+
+internal void
+OutCharsLowercase(FormatDest* dest, const char* value)
+{
+    while (*value)
+    {
+        OutChar(dest, ToLowercase(*value++));
+    }
+}
+
+internal void
+OutCharsUppercase(FormatDest* dest, const char* value)
+{
+    while (*value)
+    {
+        OutChar(dest, ToUppercase(*value++));
     }
 }
 
@@ -223,7 +286,7 @@ FormatStringList(char* destInit, umm destSize,
                     }
                     else if ((*formatAt >= '0') && (*formatAt <= '9'))
                     {
-                        S32FromZInternal(&formatAt);
+                        precision = S32FromZInternal(&formatAt);
                         precisionSpecified = true;
                     }
                     else

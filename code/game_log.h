@@ -12,32 +12,36 @@ enum LogLevelEnum
 struct LogMsg
 {
     LogLevelEnum level;
-    const char* logFileName;
-    size_t logFileLen;
-    const char* logFuncName;
-    size_t logFuncLen;
-    long logLine;
+    const char* file;
+    const char* fn;
+    long line;
     const char* format;
     va_list argList;
     char* formatted;
     char* formattedAt;
     umm remainingFormattingSpace;
+    umm maxSize;
 };
 
 #include "GameLogFormat.h"
 
-void LogInit(LogLevelEnum minLevel, const char* logFmt);
+void
+LogInit(LogLevelEnum minLevel, const char* logFmt);
 
-void Log(LogLevelEnum level,
-         const char* logFileName, size_t logFileLen,
-         const char* logFuncName, size_t logFuncLen,
+void
+LogFini();
+
+void
+Log(LogLevelEnum level,
+         const char* logFileName,
+         const char* logFnName,
          long logLine,
          const char* format, ...);
 
 // NOTE(yuval): This macro is internal do not use in other files!
 #define LogInternal(level, format, ...) Log(level, \
-    __FILE__, sizeof(__FILE__) - 1, \
-    __FUNCTION__, sizeof(__FUNCTION__) - 1, \
+    __FILE__, \
+    __FUNCTION__, \
     __LINE__, \
     format, __VA_ARGS__)
 

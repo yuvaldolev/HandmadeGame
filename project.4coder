@@ -1,0 +1,39 @@
+version(1);
+
+project_name = "Handmade Game";
+
+patterns = {
+"*.cpp",
+"*.h",
+"*.bat",
+"*.4coder",
+};
+
+blacklist_patterns = {
+".*",
+};
+
+load_paths_win = { 
+ { ".", .relative = true, .recursive = true, },
+};
+
+load_paths = {
+ { load_paths_win, .os = "win" },
+};
+
+build_win = "code\build.bat";
+run_win = "devenv build\HandmadeGame.exe";
+
+command_list = {
+ { .name = "build",
+   .out = "*compilation*", .footer_panel = true, .save_dirty_files = true, .cursor_at_end = false,
+   .cmd = { { build_win, .os = "win" },
+ },
+ { .name = "run",
+   .out = "*run*", .footer_panel = false, .save_dirty_files = false, .cursor_at_end = true,
+   .cmd = { { run_win, .os = "win" },
+ },
+};
+
+fkey_command[1] = "build";
+fkey_command[2] = "run";
