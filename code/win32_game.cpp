@@ -6,6 +6,9 @@
 
 #include <math.h>
 #include <stdio.h> // TODO(yuvai & eran): Remove this temporary include
+#include <malloc.h>
+
+#include "win32_game.h"
 
 /*
   TODO(yuval & eran): What is left to be done in the platform layer:
@@ -52,41 +55,10 @@ global_variable XInputSetStateType* XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(DirectSoundCreateType);
 
-struct Win32Backbuffer
-{
-    BITMAPINFO info;
-    void* memory;
-    s32 width;
-    s32 height;
-    s32 pitch;
-    s32 bytesPerPixel;
-};
-
-struct Win32WindowDimension
-{
-    s32 width;
-    s32 height;
-};
-
-struct Win32SoundOutput
-{
-    s32 samplesPerSecond = 48000;
-    s32 toneHz = 256;
-    s32 toneVolume = 16000;
-    u32 runningSampleIndex = 0;
-    s32 wavePeriod = samplesPerSecond / toneHz;
-    s32 halfWavePeriod = wavePeriod / 2;
-    s32 bytesPerSample = sizeof(s16) * 2;
-    s32 seconderyBufferSize = samplesPerSecond * bytesPerSample;
-};
-
 // TODO(yuval & eran): Remove global variables!!!
 global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
 global_variable IDirectSoundBuffer* globalSeconderyBuffer;
-
-global_variable s32 globalXOffset = 0;
-global_variable s32 globalYOffset = 0;
 
 // TODO(yuval & eran): Temporary!
 void
@@ -147,6 +119,7 @@ PlatformGetDateTime()
 
 internal void
 Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
+                     GameSoundOutputBuffer* sourceBuffer,
                      Win32SoundOutput* soundOutput,
                      DWORD byteToLock, DWORD bytesToWrite)
 {
@@ -163,31 +136,26 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
         // TODO(yuval): Assert that region1Size & region2Size are
         // an even multiply of the samples
 
+        s16* sourceSample = sourceBuffer->samples;
+
         // NOTE(yuval): Writing a square wave to region 1
         s32 region1SampleCount = region1Size / soundOutput->bytesPerSample;
-        s16* sampleOut = (s16*)region1;
+        s16* destSample = (s16*)region1;
+
         for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex)
         {
-            r32 t = 2 * Pi32 * ((r32)soundOutput->runningSampleIndex / (r32)soundOutput->wavePeriod);
-            r32 sineValue = sinf(t);
-            s16 sampleValue = (s16)(sineValue * soundOutput->toneVolume);
-            *sampleOut++ = sampleValue;
-            *sampleOut++ = sampleValue;
-
+            *destSample++ = *sourceSample++;
+            *destSample++ = *sourceSample++;
             ++soundOutput->runningSampleIndex;
         }
 
         // NOTE(yuval): Writing a square wave to region 2
         s32 region2SampleCount = region2Size / soundOutput->bytesPerSample;
-        sampleOut = (s16*)region2;
+        destSample = (s16*)region2;
         for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex)
         {
-            r32 t = 2 * Pi32 * ((r32)soundOutput->runningSampleIndex / (r32)soundOutput->wavePeriod);
-            r32 sineValue = sinf(t);
-            s16 sampleValue = (s16)(sineValue * soundOutput->toneVolume);
-            *sampleOut++ = sampleValue;
-            *sampleOut++ = sampleValue;
-
+            *destSample++ = *sourceSample++;
+            *destSample++ = *sourceSample++;
             ++soundOutput->runningSampleIndex;
         }
 
@@ -198,6 +166,39 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
     {
         // TODO(yuval & eran): Better log
         //LogError("Buffer Locking Failed!");
+    }
+}
+
+internal void
+Win32ClearSoundBuffer(IDirectSoundBuffer* soundBuffer,
+                      Win32SoundOutput* soundOutput)
+{
+    void* region1;
+    DWORD region1Size;
+    void* region2;
+    DWORD region2Size;
+    // NOTE(yuval): Locking the buffer before writing
+    if (SUCCEEDED(soundBuffer->Lock(0, soundOutput->seconderyBufferSize,
+                                    &region1, &region1Size,
+                                    &region2, &region2Size,
+                                    0)))
+    {
+        // TODO(yuval & eran): Assert that region2Size is 0
+
+        s8* destSample = (s8*)region1;
+        for (DWORD sampleIndex = 0; sampleIndex < region1Size; ++sampleIndex)
+        {
+            *destSample++ = 0;
+        }
+
+        destSample = (s8*)region2;
+        for (DWORD sampleIndex = 0; sampleIndex < region2Size; ++sampleIndex)
+        {
+            *destSample++ = 0;
+        }
+
+        globalSeconderyBuffer->Unlock(region1, region1Size,
+                                      region2, region2Size);
     }
 }
 
@@ -424,22 +425,18 @@ Win32MainWindowCallback(HWND window, UINT message,
                 {
                     case 'W':
                     {
-                        globalYOffset += 15;
                     } break;
 
                     case 'A':
                     {
-                        globalXOffset += 15;
                     } break;
 
                     case 'S':
                     {
-                        globalYOffset -= 15;
                     } break;
 
                     case 'D':
                     {
-                        globalXOffset -= 15;
                     } break;
 
                     case 'Q':
@@ -560,12 +557,7 @@ WinMain(HINSTANCE instance,
             Win32SoundOutput soundOutput = { };
 
             soundOutput.samplesPerSecond = 48000;
-            soundOutput.toneHz = 256;
-            soundOutput.toneVolume = 16000;
             soundOutput.runningSampleIndex = 0;
-            soundOutput.wavePeriod = soundOutput.samplesPerSecond /
-                soundOutput.toneHz;
-            soundOutput.halfWavePeriod = soundOutput.wavePeriod / 2;
             soundOutput.bytesPerSample = sizeof(s16) * 2;
             soundOutput.seconderyBufferSize = soundOutput.samplesPerSecond *
                 soundOutput.bytesPerSample;
@@ -573,8 +565,7 @@ WinMain(HINSTANCE instance,
             Win32InitDSound(window, soundOutput.samplesPerSecond,
                             soundOutput.seconderyBufferSize);
 
-            Win32FillSoundBuffer(globalSeconderyBuffer, &soundOutput,
-                                 0, soundOutput.seconderyBufferSize);
+            Win32ClearSoundBuffer(globalSeconderyBuffer, &soundOutput);
             globalSeconderyBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             globalRunning = true;
@@ -611,44 +602,24 @@ WinMain(HINSTANCE instance,
                     {
                         XINPUT_GAMEPAD* pad = &controllerState.Gamepad;
 
-                        bool up = pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                        bool down = pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-                        bool left = pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-                        bool right = pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                        b32 up = pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                        b32 down = pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                        b32 left = pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                        b32 right = pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
 
-                        bool start = pad->wButtons & XINPUT_GAMEPAD_START;
-                        bool back = pad->wButtons & XINPUT_GAMEPAD_BACK;
+                        b32 start = pad->wButtons & XINPUT_GAMEPAD_START;
+                        b32 back = pad->wButtons & XINPUT_GAMEPAD_BACK;
 
-                        bool leftShoulder = pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
-                        bool rightShoulder = pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                        b32 leftShoulder = pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
+                        b32 rightShoulder = pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
 
-                        bool aButton = pad->wButtons & XINPUT_GAMEPAD_A;
-                        bool bButton = pad->wButtons & XINPUT_GAMEPAD_B;
-                        bool xButton = pad->wButtons & XINPUT_GAMEPAD_X;
-                        bool yButton = pad->wButtons & XINPUT_GAMEPAD_Y;
+                        b32 aButton = pad->wButtons & XINPUT_GAMEPAD_A;
+                        b32 bButton = pad->wButtons & XINPUT_GAMEPAD_B;
+                        b32 xButton = pad->wButtons & XINPUT_GAMEPAD_X;
+                        b32 yButton = pad->wButtons & XINPUT_GAMEPAD_Y;
 
                         s16 stickX = pad->sThumbLX;
                         s16 stickY = pad->sThumbLY;
-
-                        if (aButton)
-                        {
-                            globalYOffset -= 5;
-                        }
-                        else if(yButton)
-                        {
-                            globalYOffset += 5;
-                        }
-                        else if (xButton)
-                        {
-                            globalXOffset += 5;
-                        }
-                        else if (bButton)
-                        {
-                            globalXOffset -= 5;
-                        }
-
-                        globalXOffset -= stickX / 2000;
-                        globalYOffset += stickY / 2000;
                     }
                     else
                     {
@@ -658,34 +629,22 @@ WinMain(HINSTANCE instance,
                     }
                 }
 
-                GameOffscreenBuffer buffer = { };
-                buffer.memory = globalBackbuffer.memory;
-                buffer.width = globalBackbuffer.width;
-                buffer.height = globalBackbuffer.height;
-                buffer.pitch = globalBackbuffer.pitch;
+                b32 soundIsValid = false;
 
-                GameUpdateAndRender(&buffer);
+                DWORD playCursor = 0;
+                DWORD writeCursor = 0;
+                DWORD byteToLock = 0;
+                DWORD bytesToWrite = 0;
 
-                Win32WindowDimension dim = Win32GetWindowDimension(window);
-                Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
-
-                // NOTE(yuval): DirectSound output test
-                DWORD playCursor;
-                DWORD writeCursor;
                 if (SUCCEEDED(globalSeconderyBuffer->
                               GetCurrentPosition(&playCursor, &writeCursor)))
                 {
-                    DWORD byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample)
+                    soundIsValid = true;
+
+                    byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample)
                         % soundOutput.seconderyBufferSize;
-                    DWORD bytesToWrite;
 
-                    b32 isPlaying = true;
-
-                    if (byteToLock == playCursor)
-                    {
-                        bytesToWrite = 0;
-                    }
-                    else if (byteToLock > playCursor)
+                    if (byteToLock > playCursor)
                     {
                         bytesToWrite = soundOutput.seconderyBufferSize - byteToLock;
                         bytesToWrite += playCursor;
@@ -694,10 +653,33 @@ WinMain(HINSTANCE instance,
                     {
                         bytesToWrite = playCursor - byteToLock;
                     }
+                }
 
-                    Win32FillSoundBuffer(globalSeconderyBuffer, &soundOutput,
+                GameOffscreenBuffer offscreenBuffer = { };
+                offscreenBuffer.memory = globalBackbuffer.memory;
+                offscreenBuffer.width = globalBackbuffer.width;
+                offscreenBuffer.height = globalBackbuffer.height;
+                offscreenBuffer.pitch = globalBackbuffer.pitch;
+
+                GameSoundOutputBuffer soundBuffer = { };
+                soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
+                soundBuffer.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
+                soundBuffer.samples = (s16*)VirtualAlloc(0, bytesToWrite,
+                                                         MEM_COMMIT, PAGE_READWRITE);
+
+                GameUpdateAndRender(&offscreenBuffer, &soundBuffer);
+
+                if (soundIsValid)
+                {
+                    Win32FillSoundBuffer(globalSeconderyBuffer,
+                                         &soundBuffer, &soundOutput,
                                          byteToLock, bytesToWrite);
                 }
+
+                Win32WindowDimension dim = Win32GetWindowDimension(window);
+                Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
+
+                // NOTE(yuval): DirectSound output test
 
                 #if 0
                 u64 endCycleCount = __rdtsc();

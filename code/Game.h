@@ -33,14 +33,21 @@ struct GameOffscreenBuffer
     s32 pitch;
 };
 
-/* GameUpdateAndRender get 4 thing from the Platform:
+struct GameSoundOutputBuffer
+{
+    s16* samples;
+    s32 samplesPerSecond;
+    s32 sampleCount;
+};
+
+/* GameUpdateAndRender gets 4 thing from the Platform:
    1. Timing
    2. Controller/Keyboard input
    3. Bitmap buffer to use
    4. Sound buffer to use
 */
 void
-GameUpdateAndRender(GameOffscreenBuffer* buffer);
+GameUpdateAndRender(GameOffscreenBuffer* buffer, GameSoundOutputBuffer* soundBuffer);
 
 #define GAMEH
 #endif
