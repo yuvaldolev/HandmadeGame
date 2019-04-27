@@ -177,6 +177,7 @@ Win32ClearSoundBuffer(IDirectSoundBuffer* soundBuffer,
     DWORD region1Size;
     void* region2;
     DWORD region2Size;
+
     // NOTE(yuval): Locking the buffer before writing
     if (SUCCEEDED(soundBuffer->Lock(0, soundOutput->seconderyBufferSize,
                                     &region1, &region1Size,
