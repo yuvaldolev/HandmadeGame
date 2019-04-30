@@ -8,9 +8,32 @@
 
 #define Pi32 3.14159265359
 
+/*
+   NOTE(yuval): Build Options
+GAME_INTERNAL:
+0 - Build for public release
+1 - Build for developers only
+
+ GAME_SLOW:
+ 0 - No slow code is allowed
+ 1 - Slow code is welcome
+*/
+
+#if GAME_SLOW
+#define Assert(expression) if (!(expression)) { *(int*)0 = 0; }
+#else
+#define Assert(expression)
+#endif
+
+// TODO(yuval & eran): Move this to another file
+#define Kilobytes(value) (1024 * (value))
+#define Megabytes(value) (1024 * Kilobytes(value))
+#define Gigabytes(value) (1024 * Megabytes(value))
+#define Terabytes(value) (1024 * Gigabytes(value))
+
 // NOTE(yuval): To be used only in the same function
 // where the array was defined!
-#define ArrayCount(array) (sizeof(array) / sizeof(array[0]))
+#define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
 typedef int8_t s8;
 typedef int16_t s16;
@@ -35,7 +58,7 @@ inline u32
 StringLength(char* string)
 {
     u32 count = 0;
-
+    
     if (string)
     {
         while(*string++)
@@ -43,10 +66,9 @@ StringLength(char* string)
             ++count;
         }
     }
-
+    
     return count;
 }
 
 #define GAMETYPES_H
 #endif
-
