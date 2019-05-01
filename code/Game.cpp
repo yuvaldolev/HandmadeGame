@@ -46,7 +46,6 @@ GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
         
         tSine -= 2.0f * Pi32 * (1.0f / (r32)WAVE_PERIOD);
     }
-    
 }
 
 void
@@ -60,23 +59,20 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     
     if (!memory->isInitialized)
     {
-        gameState->toneHz = 0; // NOTE(yuval): 256
+        gameState->toneHz = 256;
         gameState->blueOffset = 0;
         gameState->greenOffset = 0;
         memory->isInitialized = true;
     }
-    
-    gameState->toneHz += 1;
-    gameState->blueOffset += 1;
-    gameState->greenOffset += 1;
     
     GameController* input0 = &input->controllers[0];
     
     if (input0->isAnalog)
     {
         // TODO(yuval & eran): Analog controller tuning
-        gameState->toneHz += (s32)(128.0f * input0->endX);
-        gameState->blueOffset += (s32)(4.0f * input0->endY);
+        gameState->blueOffset -= (s32)(4.0f * input0->endX);
+        gameState->greenOffset += (s32)(4.0f * input0->endY);
+        gameState->toneHz = 256 + (s32)(128.0f * input0->endY);
     }
     else
     {
@@ -92,4 +88,3 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     RenderGradient(offscreenBuffer, gameState->blueOffset,
                    gameState->greenOffset);
 }
-

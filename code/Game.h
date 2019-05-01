@@ -20,6 +20,30 @@ struct PlatformDateTime
 PlatformDateTime
 PlatformGetDateTime();
 
+#ifdef GAME_INTERNAL
+/*
+IMPORTANT(yuval):
+This code is NOT shipping code -
+They are blocking and write donesn't protect against lost data!
+*/
+struct DEBUGReadFileResult
+{
+    void* contents;
+    u32 contentsSize;
+    
+};
+
+DEBUGReadFileResult
+DEBUGPlatformReadEntireFile(const char* filename);
+
+void
+DEBUGPlatformFreeFileMemory(void* memory);
+
+b32
+DEBUGPlatformWriteEntireFile(const char* filename,
+                             void* memory, u32 memorySize);
+#endif
+
 // TODO(yuval & eran): Temporary!
 void
 PlatformWriteLogMsgInColor(LogMsg* msg);

@@ -22,10 +22,10 @@ LogFormatWriteChars(LogMsg* msg, const char* value)
 {
     FormatDest dest = { msg->formattedAt, msg->remainingFormattingSpace };
     OutChars(&dest, value);
-
+    
     msg->formattedAt = dest.at;
     msg->remainingFormattingSpace = dest.size;
-
+    
     if (msg->remainingFormattingSpace)
     {
         *msg->formattedAt = '\0';
@@ -38,7 +38,7 @@ LOG_FORMAT_FN(LogFormatUserMessage)
     umm bytesWritten = FormatStringList(msg->formattedAt,
                                         msg->remainingFormattingSpace,
                                         msg->format, msg->argList);
-
+    
     msg->remainingFormattingSpace -= bytesWritten;
     msg->formattedAt += bytesWritten;
 }
@@ -48,7 +48,7 @@ LOG_FORMAT_FN(LogFormatNewLine)
 {
     *msg->formattedAt++ = '\n';
     --msg->remainingFormattingSpace;
-
+    
     if (msg->remainingFormattingSpace)
     {
         *msg->formattedAt = '\0';
@@ -64,7 +64,7 @@ LOG_FORMAT_FN(LogFormatDate)
                                     dateTime.day, dateTime.month, dateTime.year,
                                     dateTime.hour, dateTime.minute, dateTime.second,
                                     dateTime.milliseconds);
-
+    
     msg->remainingFormattingSpace -= bytesWritten;
     msg->formattedAt += bytesWritten;
 }
@@ -73,12 +73,12 @@ internal
 LOG_FORMAT_FN(LogFormatFullFileName)
 {
     const char* fileName = msg->file;
-
+    
     if (!fileName)
     {
         fileName = "(file=null)";
     }
-
+    
     LogFormatWriteChars(msg, fileName);
 }
 
@@ -86,18 +86,18 @@ internal
 LOG_FORMAT_FN(LogFormatFileName)
 {
     const char* fileName = msg->file;
-
+    
     if (fileName)
     {
         const char* fileNameAt = fileName;
-
+        
         while (*fileNameAt)
         {
             if ((*fileNameAt == '/') || (*fileNameAt == '\\'))
             {
                 fileName = fileNameAt + 1;
             }
-
+            
             ++fileNameAt;
         }
     }
@@ -105,7 +105,7 @@ LOG_FORMAT_FN(LogFormatFileName)
     {
         fileName = "(file=null)";
     }
-
+    
     LogFormatWriteChars(msg, fileName);
 }
 
@@ -113,12 +113,12 @@ internal
 LOG_FORMAT_FN(LogFormatFnName)
 {
     const char* fnName = msg->fn;
-
+    
     if (!fnName)
     {
         fnName = "(fn=null)";
     }
-
+    
     LogFormatWriteChars(msg, fnName);
 }
 
@@ -127,10 +127,10 @@ LOG_FORMAT_FN(LogFormatLineNum)
 {
     FormatDest dest = { msg->formattedAt, msg->remainingFormattingSpace };
     U64ToASCII(&dest, msg->line, 10, globalDecChars);
-
+    
     msg->formattedAt = dest.at;
     msg->remainingFormattingSpace = dest.size;
-
+    
     if (msg->remainingFormattingSpace)
     {
         *msg->formattedAt = '\0';
@@ -157,10 +157,10 @@ LOG_FORMAT_FN(LogFormatLevelUppercase)
     const char* levelString = LogFormatGetLevelString(msg->level);
     FormatDest dest = { msg->formattedAt, msg->remainingFormattingSpace };
     OutCharsUppercase(&dest, levelString);
-
+    
     msg->formattedAt = dest.at;
     msg->remainingFormattingSpace = dest.size;
-
+    
     if (msg->remainingFormattingSpace)
     {
         *msg->formattedAt = '\0';
@@ -179,7 +179,7 @@ LOG_FORMAT_FN(LogFormatPercent)
 {
     *msg->formattedAt++ = '%';
     --msg->remainingFormattingSpace;
-
+    
     if (msg->remainingFormattingSpace)
     {
         *msg->formattedAt = '\0';
@@ -201,13 +201,13 @@ LogFormatReallocateMemory(void* memory, umm newBlockCount,
     memory_index newMemorySize = blockSize * newBlockCount;
     s8* newMemory = (s8*)malloc(newMemorySize);
     ZeroSize(newMemory, newMemorySize);
-
+    
     if (memory)
     {
-        Copy(memory, newMemory, blockSize * prevBlockCount);
+        Copy(newMemory, memory, blockSize * prevBlockCount);
         free(memory);
     }
-
+    
     return newMemory;
 }
 
@@ -216,9 +216,9 @@ LogFormatAppendFormat(LogFormats* formats, LogFormat* format,
                       int* index)
 {
     const int CHUNK_SIZE = 5;
-
+    
     umm* size = &formats->size;
-
+    
     if (*index >= *size)
     {
         formats->formats = (LogFormat**)
@@ -228,7 +228,7 @@ LogFormatAppendFormat(LogFormats* formats, LogFormat* format,
                                       sizeof(LogFormat*));
         *size += CHUNK_SIZE;
     }
-
+    
     formats->formats[*index] = format;
     ++(*index);
 }
@@ -245,15 +245,15 @@ internal char*
 LogFormatGetNextChars(const char** fmt)
 {
     const u32 CHUNK_SIZE = 10;
-
+    
     char* result = 0;
     umm resultLen = 0;
     memory_index resultIndex = 0;
-
+    
     if (fmt && *fmt)
     {
         char currChar = **fmt;
-
+        
         while (currChar && currChar != '%')
         {
             if (!resultIndex || resultIndex >= resultLen - 1)
@@ -262,7 +262,7 @@ LogFormatGetNextChars(const char** fmt)
                 {
                     result[resultIndex++] = '\0';
                 }
-
+                
                 result = (char*)
                     LogFormatReallocateMemory(result,
                                               resultLen + CHUNK_SIZE,
@@ -270,12 +270,12 @@ LogFormatGetNextChars(const char** fmt)
                                               sizeof(char));
                 resultLen += CHUNK_SIZE;
             }
-
+            
             result[resultIndex++] = currChar;
             currChar = LogFormatAdvanceChars(fmt, 1);
         }
     }
-
+    
     return result;
 }
 
@@ -283,66 +283,66 @@ internal LogFormatFnType*
 LogFormatGetFormatFn(const char tokenSpecifier)
 {
     LogFormatFnType* formatFn;
-
+    
     switch (tokenSpecifier)
     {
         case 'm':
         {
             formatFn = LogFormatUserMessage;
         } break;
-
+        
         case 'n':
         {
             formatFn = LogFormatNewLine;
         } break;
-
+        
         case 'd':
         {
             formatFn = LogFormatDate;
         } break;
-
+        
         case 'F':
         {
             formatFn = LogFormatFullFileName;
         } break;
-
+        
         case 'f':
         {
             formatFn = LogFormatFileName;
         } break;
-
+        
         case 'U':
         {
             formatFn = LogFormatFnName;
         } break;
-
+        
         case 'L':
         {
             formatFn = LogFormatLineNum;
         } break;
-
+        
         case 'V':
         {
             formatFn = LogFormatLevelUppercase;
         } break;
-
+        
         case 'v':
         {
             formatFn = LogFormatLevelTitlecase;
         } break;
-
+        
         case '%':
         {
             formatFn = LogFormatPercent;
         } break;
-
+        
         default:
         {
             // TODO(yuval & eran): Assert
             formatFn = 0;
         }
     }
-
+    
     return formatFn;
 }
 
@@ -350,16 +350,16 @@ internal LogFormat*
 LogFormatGetNextFormat(const char** fmt)
 {
     LogFormat* format = 0;
-
+    
     if (fmt && *fmt)
     {
         char formatSpecifier = **fmt;
-
+        
         if (formatSpecifier)
         {
             LogFormatFnType* formatFn = 0;
             char* formatChars = 0;
-
+            
             if (formatSpecifier == '%')
             {
                 formatSpecifier = LogFormatAdvanceChars(fmt, 1);
@@ -371,7 +371,7 @@ LogFormatGetNextFormat(const char** fmt)
                 formatFn = LogFormatChars;
                 formatChars = LogFormatGetNextChars(fmt);
             }
-
+            
             if (formatFn)
             {
                 format = (LogFormat*)malloc(sizeof(LogFormat));
@@ -381,7 +381,7 @@ LogFormatGetNextFormat(const char** fmt)
             }
         }
     }
-
+    
     return format;
 }
 
@@ -391,10 +391,10 @@ LogFormatSetPattern(const char* fmt)
     if (fmt)
     {
         LogFormatClean();
-
+        
         int currFormatIndex = 0;
         LogFormat* format = LogFormatGetNextFormat(&fmt);
-
+        
         while (format)
         {
             LogFormatAppendFormat(&globalFormats, format, &currFormatIndex);
@@ -407,30 +407,30 @@ void
 LogFormatClean()
 {
     LogFormat** formatsAt = globalFormats.formats;
-
+    
     if (formatsAt)
     {
         umm size = globalFormats.size;
-
+        
         while (*formatsAt && size--)
         {
             LogFormat* format = *formatsAt;
-
+            
             // NOTE(yuval): Delete the format's chars
             free(format->chars); // TODO(yuval & eran): Temporary
             format->chars = 0;
-
+            
             // NOTE(yuval): Delete the format
             free(format);
             *formatsAt = 0;
-
+            
             ++formatsAt;
         }
-
+        
         // NOTE(yuval): Delete the formats array
         free(globalFormats.formats);
         globalFormats.formats = 0;
-
+        
         // NOTE(yuval): Zero the size
         globalFormats.size = 0;
     }
@@ -441,7 +441,7 @@ LogFormatMessage(LogMsg* msg)
 {
     LogFormat** formatsAt = globalFormats.formats;
     umm size = globalFormats.size;
-
+    
     while (*formatsAt && size-- && msg->remainingFormattingSpace)
     {
         (*formatsAt)->fn(msg, *formatsAt);

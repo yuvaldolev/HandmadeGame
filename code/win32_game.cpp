@@ -117,14 +117,117 @@ PlatformGetDateTime()
     return dateTime;
 }
 
+DEBUGReadFileResult
+DEBUGPlatformReadEntireFile(const char* filename)
+{
+    DEBUGReadFileResult result = { };
+    
+    HANDLE fileHandle = CreateFileA(filename,
+                                    GENERIC_READ, FILE_SHARE_READ,
+                                    0,
+                                    OPEN_EXISTING,
+                                    0, 0);
+    
+    if (fileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER fileSize;
+        if (GetFileSizeEx(fileHandle, &fileSize))
+        {
+            u32 fileSize32 = SafeTruncateToU32(fileSize.QuadPart);
+            result.contents = VirtualAlloc(0, fileSize32,
+                                           MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            
+            if (result.contents)
+            {
+                DWORD bytesRead;
+                
+                if (ReadFile(fileHandle, result.contents, fileSize32, &bytesRead, 0) &&
+                    (bytesRead == fileSize32))
+                {
+                    // NOTE(yuval): The file was read successfully
+                    result.contentsSize = fileSize32;
+                }
+                else
+                {
+                    LogError("Reading File: %s Failed!", filename);
+                    DEBUGPlatformFreeFileMemory(result.contents);
+                    result.contents = 0;
+                }
+            }
+            else
+            {
+                LogError("Allocation Faliure While Read File: %s", filename);
+            }
+        }
+        else
+        {
+            LogError("Get File Size For: %s Failed!", filename);
+        }
+        
+        CloseHandle(fileHandle);
+    }
+    else
+    {
+        LogError("The File: %s Does Not Exist!", filename);
+    }
+    
+    return result;
+}
+
+
+b32
+DEBUGPlatformWriteEntireFile(const char* filename,
+                             void* memory, u32 memorySize)
+{
+    b32 result = false;
+    
+    HANDLE fileHandle = CreateFileA(filename,
+                                    GENERIC_WRITE, 0,
+                                    0,
+                                    CREATE_ALWAYS,
+                                    0, 0);
+    
+    if (fileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD bytesWritten;
+        
+        if (WriteFile(fileHandle, memory, memorySize, &bytesWritten, 0))
+        {
+            // NOTE(yuval): The file was read successfully
+            result = (bytesWritten == memorySize);
+        }
+        else
+        {
+            LogError("Writing To File: %s Failed!", filename);
+        }
+        
+        CloseHandle(fileHandle);
+    }
+    else
+    {
+        LogError("Could Not Create Or Overwrite File: %s!", filename);
+    }
+    
+    return result;
+}
+
+void
+DEBUGPlatformFreeFileMemory(void* memory)
+{
+    if (memory)
+    {
+        VirtualFree(memory, 0, MEM_RELEASE);
+    }
+}
+
 internal r32
 Win32NormalizeXInputStick(s16 stickValue)
 {
-    s16 result;
+    r32 result;
     
     if (stickValue < 0)
     {
-        result = (r32)stickValue / -32768.0f;
+        result = (r32)stickValue / 32768.0f;
     }
     else
     {
@@ -660,6 +763,8 @@ WinMain(HINSTANCE instance,
                     {
                         GameController* oldController = &oldInput->controllers[controllerIndex];
                         GameController* newController = &newInput->controllers[controllerIndex];
+                        
+                        newController->isAnalog = true;
                         
                         XINPUT_GAMEPAD* pad = &controllerState.Gamepad;
                         

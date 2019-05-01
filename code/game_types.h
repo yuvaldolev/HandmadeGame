@@ -54,8 +54,23 @@ typedef uintptr_t umm;
 
 typedef size_t memory_index;
 
+struct String
+{
+    char* data;
+    umm count;
+    memory_index memorySize;
+};
+
 inline u32
-StringLength(char* string)
+SafeTruncateToU32(u64 value)
+{
+    // TODO(yuval & eran): Defines for size limits
+    Assert(value <= 0xFFFFFFFF);
+    return (u32)value;
+}
+
+inline u32
+StringLength(const char* string)
 {
     u32 count = 0;
     
