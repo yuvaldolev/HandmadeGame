@@ -92,7 +92,7 @@ PlatformWriteLogMsgInColor(LogMsg* msg)
             
             SetConsoleTextAttribute(console, attrib);
             WriteConsoleA(console, msg->formatted,
-                          msg->maxSize - msg->remainingFormattingSpace,
+                          (DWORD)(msg->maxSize - msg->remainingFormattingSpace),
                           0, 0);
             SetConsoleTextAttribute(console, origBufferInfo.wAttributes);
         }
@@ -269,7 +269,7 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
         s16* sourceSample = sourceBuffer->samples;
         
         // NOTE(yuval): Writing a square wave to region 1
-        s32 region1SampleCount = region1Size / soundOutput->bytesPerSample;
+        u32 region1SampleCount = region1Size / soundOutput->bytesPerSample;
         s16* destSample = (s16*)region1;
         
         for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; ++sampleIndex)
@@ -280,7 +280,7 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
         }
         
         // NOTE(yuval): Writing a square wave to region 2
-        s32 region2SampleCount = region2Size / soundOutput->bytesPerSample;
+        u32 region2SampleCount = region2Size / soundOutput->bytesPerSample;
         destSample = (s16*)region2;
         for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; ++sampleIndex)
         {
@@ -454,9 +454,9 @@ internal void
 Win32OpenConsole()
 {
     AllocConsole();
-    freopen("CONIN$", "r", stdin);
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONOUT$", "w", stderr);
+    FILE* ignored;
+    freopen_s(&ignored, "CONOUT$", "w", stdout);
+    freopen_s(&ignored, "CONOUT$", "w", stderr);
 }
 
 internal Win32WindowDimension
@@ -541,7 +541,7 @@ Win32MainWindowCallback(HWND window, UINT message,
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            u32 keyCode = wParam;
+            WPARAM keyCode = wParam;
             bool wasDown = (lParam & (1 << 30)) != 0;
             bool isDown = (lParam & (1 << 31)) == 0;
             
@@ -650,9 +650,6 @@ WinMain(HINSTANCE instance,
     // TODO(yuval & eran): This is temporary
     Win32OpenConsole();
     
-    // TODO(yuval & eran): Move this to another function
-    LogInit(LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
-    
     Win32LoadXInput();
     
     Win32ResizeDIBSection(&globalBackbuffer, 1280, 720);
@@ -710,7 +707,7 @@ WinMain(HINSTANCE instance,
             
             GameMemory gameMemory = { };
             gameMemory.permanentStorageSize = Megabytes(64);
-            gameMemory.transientStorageSize = Gigabytes((u64)4);
+            gameMemory.transientStorageSize = Gigabytes((u64)1);
             
             u64 totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
             
@@ -746,7 +743,7 @@ WinMain(HINSTANCE instance,
                     DispatchMessageA(&message);
                 }
                 
-                int maxControllerCount = XUSER_MAX_COUNT;
+                DWORD maxControllerCount = XUSER_MAX_COUNT;
                 
                 if (maxControllerCount > ArrayCount(newInput->controllers))
                 {
@@ -903,9 +900,6 @@ WinMain(HINSTANCE instance,
     {
         LogError("Window Class Registration Failed!");
     }
-    
-    // TODO(yuval & eran): Move this to another function
-    LogFini();
     
     return 0;
 }

@@ -44,7 +44,7 @@ GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         
-        tSine -= 2.0f * Pi32 * (1.0f / (r32)WAVE_PERIOD);
+        tSine -= 2.0f * (r32)Pi32 * (1.0f / (r32)WAVE_PERIOD);
     }
 }
 
@@ -59,9 +59,16 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     
     if (!memory->isInitialized)
     {
+        InitializeArena(&memory->loggingArena,
+                        (u8*)memory->permanentStorage + sizeof(GameState),
+                        (u64)(memory->permanentStorageSize * 0.001f));
+        
+        LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
+        
         gameState->toneHz = 256;
         gameState->blueOffset = 0;
         gameState->greenOffset = 0;
+        
         memory->isInitialized = true;
     }
     

@@ -6,7 +6,7 @@ typedef LOG_FORMAT_FN(LogFormatFnType);
 struct LogFormat
 {
     LogFormatFnType* fn;
-    char* chars;
+    String chars;
 };
 
 struct LogFormats
@@ -15,7 +15,8 @@ struct LogFormats
     umm size;
 };
 
-global_variable LogFormats globalFormats = { };
+global_variable MemoryArena* globalArena = 0;
+global_variable LogFormats* globalFormats;
 
 internal void
 LogFormatWriteChars(LogMsg* msg, const char* value)
@@ -241,37 +242,29 @@ LogFormatAdvanceChars(const char** fmt, u32 amount)
     return **fmt;
 }
 
-internal char*
+internal String
 LogFormatGetNextChars(const char** fmt)
 {
-    const u32 CHUNK_SIZE = 10;
-    
-    char* result = 0;
-    umm resultLen = 0;
-    memory_index resultIndex = 0;
+    String result =  { };
     
     if (fmt && *fmt)
     {
         char currChar = **fmt;
+        b32 dataInitialized = false;
         
         while (currChar && currChar != '%')
         {
-            if (!resultIndex || resultIndex >= resultLen - 1)
+            char* memory = (char*)PushSize(globalArena, sizeof(char));
+            *memory = currChar;
+            
+            if (!dataInitialized)
             {
-                if (resultIndex)
-                {
-                    result[resultIndex++] = '\0';
-                }
-                
-                result = (char*)
-                    LogFormatReallocateMemory(result,
-                                              resultLen + CHUNK_SIZE,
-                                              resultLen,
-                                              sizeof(char));
-                resultLen += CHUNK_SIZE;
+                result.data = memory;
             }
             
-            result[resultIndex++] = currChar;
+            ++result.count;
+            result.memorySize += sizeof(char);
+            
             currChar = LogFormatAdvanceChars(fmt, 1);
         }
     }
@@ -358,7 +351,7 @@ LogFormatGetNextFormat(const char** fmt)
         if (formatSpecifier)
         {
             LogFormatFnType* formatFn = 0;
-            char* formatChars = 0;
+            String formatChars = { };
             
             if (formatSpecifier == '%')
             {
@@ -374,8 +367,8 @@ LogFormatGetNextFormat(const char** fmt)
             
             if (formatFn)
             {
-                format = (LogFormat*)malloc(sizeof(LogFormat));
-                ZeroSize(format, sizeof(LogFormat));
+                format = PushStruct(globalArena, LogFormat);
+                // ZeroSize(format, sizeof(LogFormat)); TODO(yuval & eran): Use this
                 format->fn = formatFn;
                 format->chars = formatChars;
             }
@@ -386,11 +379,13 @@ LogFormatGetNextFormat(const char** fmt)
 }
 
 void
-LogFormatSetPattern(const char* fmt)
+LogFormatSetPattern(MemoryArena* arena, const char* fmt)
 {
     if (fmt)
     {
-        LogFormatClean();
+        //LogFormatClean();
+        globalArena = arena;
+        globalFormats = PushStruct(arena, LogFormats);
         
         int currFormatIndex = 0;
         LogFormat* format = LogFormatGetNextFormat(&fmt);

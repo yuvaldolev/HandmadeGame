@@ -1,7 +1,8 @@
-#if !defined(GAMEH)
+#if !defined(GAME_H)
 
 #include "game_types.h"
 #include "game_shared.h"
+#include "game_memory.h"
 #include "game_log.h"
 
 // NOTE(yuval): Services that the platform provides to the game
@@ -116,6 +117,8 @@ struct GameMemory
     
     void* transientStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
     u64 transientStorageSize;
+    
+    MemoryArena loggingArena;
 };
 
 /* GameUpdateAndRender gets 4 thing from the Platform:
@@ -139,6 +142,6 @@ struct GameState
     s32 greenOffset;
 };
 
-#define GAMEH
+#define GAME_H
 #endif
 
