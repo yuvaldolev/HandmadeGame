@@ -220,16 +220,24 @@ DEBUGPlatformFreeFileMemory(void* memory)
     }
 }
 
-internal r32
-Win32NormalizeXInputStick(s16 stickValue)
+internal void
+Win32ProcessKeyboardMessage(GameButtonState* newState, b32 isDown)
 {
-    r32 result;
+    Assert(newState->endedDown != isDown);
+    newState->endedDown = isDown;
+    ++newState->halfTransitionCount;
+}
+
+internal r32
+Win32NormalizeXInputStick(s16 stickValue, const s16 deadZoneThreshold)
+{
+    r32 result = 0;
     
-    if (stickValue < 0)
+    if (stickValue < -deadZoneThreshold)
     {
         result = (r32)stickValue / 32768.0f;
     }
-    else
+    else if (stickValue > deadZoneThreshold)
     {
         result = (r32)stickValue / 32767.0f;
     }
@@ -238,10 +246,10 @@ Win32NormalizeXInputStick(s16 stickValue)
 }
 
 internal void
-Win32ProcessXInputButton(DWORD XInputButtonState,
-                         DWORD buttonBit,
-                         GameButtonState* oldState,
-                         GameButtonState* newState)
+Win32ProcessXInputDigitalButton(DWORD XInputButtonState,
+                                DWORD buttonBit,
+                                GameButtonState* oldState,
+                                GameButtonState* newState)
 {
     newState->endedDown = ((XInputButtonState & buttonBit) == buttonBit);
     newState->halfTransitionCount = (oldState->endedDown != newState->endedDown) ? 1 : 0;
@@ -314,7 +322,7 @@ Win32ClearSoundBuffer(IDirectSoundBuffer* soundBuffer,
                                     &region2, &region2Size,
                                     0)))
     {
-        // TODO(yuval & eran): Assert that region2Size is 0
+        Assert(!region2Size);
         
         s8* destSample = (s8*)region1;
         for (DWORD sampleIndex = 0; sampleIndex < region1Size; ++sampleIndex)
@@ -378,17 +386,18 @@ Win32InitDSound(HWND window, s32 samplesPerSecond, s32 bufferSize)
                     if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
                     {
                         // NOTE(yuval): Finished setting the format
-                        LogInfo("Primary buffer format was set");
+                        
+                        // TODO(yuval & eran): LogInfo("Primary buffer format was set");
                     }
                     else
                     {
-                        LogError("Primary Buffer Formatting Failed!");
+                        // TODO(yuval & eran): LogError("Primary Buffer Formatting Failed!");
                     }
                 }
             }
             else
             {
-                LogError("DirectSound Cooperatrive Level Setting Failed!");
+                // TODO(yuval & eran): LogError("DirectSound Cooperatrive Level Setting Failed!");
             }
             
             // NOTE(yuval): Creating the secondery buffer
@@ -401,17 +410,17 @@ Win32InitDSound(HWND window, s32 samplesPerSecond, s32 bufferSize)
             if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription,
                                                          &globalSeconderyBuffer, 0)))
             {
-                LogInfo("The secondery sound buffer was created");
+                // TODO(yuval & eran): LogInfo("The secondery sound buffer was created");
             }
         }
         else
         {
-            LogError("DirectSound Object Creation Failed!");
+            // TODO(yuval & eran): LogError("DirectSound Object Creation Failed!");
         }
     }
     else
     {
-        LogError("dsound.dll Loading Failed!");
+        // TODO(yuval & eran): LogError("dsound.dll Loading Failed!");
     }
 }
 
@@ -445,7 +454,7 @@ Win32LoadXInput()
     }
     else
     {
-        LogError("Failed To Load xinput1_4.dll and xinput1_3.dll!");
+        // TODO(yuval & eran): LogError("Failed To Load xinput1_4.dll and xinput1_3.dll!");
     }
 }
 
@@ -514,6 +523,110 @@ Win32DisplayBackbufferInWindow(HDC deviceContext, Win32Backbuffer* buffer,
                   SRCCOPY);
 }
 
+internal void
+Win32ProcessPendingMessages(GameController* keyboardController)
+{
+    MSG message;
+    
+    while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE))
+    {
+        switch (message.message)
+        {
+            case WM_QUIT:
+            {
+                globalRunning = false;
+            } break;
+            
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            {
+                WPARAM keyCode = message.wParam;
+                bool wasDown = (message.lParam & (1 << 30)) != 0;
+                bool isDown = (message.lParam & (1 << 31)) == 0;
+                
+                b32 altIsDown = (message.lParam & (1 << 29));
+                
+                if (keyCode == VK_F4 && altIsDown)
+                {
+                    globalRunning = false;
+                }
+                else if (wasDown != isDown)
+                {
+                    switch (keyCode)
+                    {
+                        case 'W':
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->moveUp, isDown);
+                        } break;
+                        
+                        case 'A':
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->moveLeft, isDown);
+                        } break;
+                        
+                        case 'S':
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->moveDown, isDown);
+                        } break;
+                        
+                        case 'D':
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->moveRight, isDown);
+                        } break;
+                        
+                        case 'Q':
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->leftShoulder, isDown);
+                        } break;
+                        
+                        case 'E':
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->rightShoulder, isDown);
+                        } break;
+                        
+                        case VK_UP:
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->actionUp, isDown);
+                        } break;
+                        
+                        case VK_DOWN:
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->actionDown, isDown);
+                        } break;
+                        
+                        case VK_LEFT:
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->actionLeft, isDown);
+                        } break;
+                        
+                        case VK_RIGHT:
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->actionRight, isDown);
+                        } break;
+                        
+                        case VK_ESCAPE:
+                        {
+                            
+                        } break;
+                        
+                        case VK_SPACE:
+                        {
+                        } break;
+                    }
+                }
+            } break;
+            
+            default:
+            {
+                TranslateMessage(&message);
+                DispatchMessageA(&message);
+            }
+        }
+    }
+    
+}
 internal LRESULT CALLBACK
 Win32MainWindowCallback(HWND window, UINT message,
                         WPARAM wParam, LPARAM lParam)
@@ -536,85 +649,18 @@ Win32MainWindowCallback(HWND window, UINT message,
             globalRunning = false;
         } break;
         
+        
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            WPARAM keyCode = wParam;
-            bool wasDown = (lParam & (1 << 30)) != 0;
-            bool isDown = (lParam & (1 << 31)) == 0;
-            
-            b32 altIsDown = lParam & (1 << 29);
-            if (keyCode == VK_F4 && altIsDown)
-            {
-                globalRunning = false;
-            }
-            else if (wasDown != isDown)
-            {
-                switch (keyCode)
-                {
-                    case 'W':
-                    {
-                    } break;
-                    
-                    case 'A':
-                    {
-                    } break;
-                    
-                    case 'S':
-                    {
-                    } break;
-                    
-                    case 'D':
-                    {
-                    } break;
-                    
-                    case 'Q':
-                    {
-                        
-                    } break;
-                    
-                    case 'E':
-                    {
-                        
-                    } break;
-                    
-                    case VK_UP:
-                    {
-                        
-                    } break;
-                    
-                    case VK_DOWN:
-                    {
-                        
-                    } break;
-                    
-                    case VK_LEFT:
-                    {
-                        
-                    } break;
-                    
-                    case VK_RIGHT:
-                    {
-                        
-                    } break;
-                    
-                    case VK_ESCAPE:
-                    {
-                        
-                    } break;
-                    
-                    case VK_SPACE:
-                    {
-                    } break;
-                }
-            }
+            Assert(!"Keyboard Input Came In Through The Main Window Callback!");
         } break;
         
         case WM_ACTIVATEAPP:
         {
-            LogDebug("Window Refocused");
+            // TODO(yuval & eran): LogDebug("Window Refocused");
         } break;
         
         case WM_PAINT:
@@ -716,189 +762,243 @@ WinMain(HINSTANCE instance,
             gameMemory.transientStorage = (u8*)gameMemory.permanentStorage +
                 gameMemory.permanentStorageSize;
             
-            GameInput inputs[2] = { };
-            GameInput* newInput = &inputs[0];
-            GameInput* oldInput = &inputs[1];
-            
-            globalRunning = true;
-#if 0
-            u64 lastCycleCount = __rdtsc();
-            
-            LARGE_INTEGER lastCounter;
-            QueryPerformanceCounter(&lastCounter);
-#endif
-            
-            while (globalRunning)
+            if (samples && gameMemory.permanentStorage && gameMemory.transientStorage)
             {
-                MSG message;
+                GameInput inputs[2] = { };
+                GameInput* newInput = &inputs[0];
+                GameInput* oldInput = &inputs[1];
                 
-                while (PeekMessageA(&message, window, 0, 0, PM_REMOVE))
-                {
-                    if (message.message == WM_QUIT)
-                    {
-                        globalRunning = false;
-                    }
-                    
-                    TranslateMessage(&message);
-                    DispatchMessageA(&message);
-                }
-                
-                DWORD maxControllerCount = XUSER_MAX_COUNT;
-                
-                if (maxControllerCount > ArrayCount(newInput->controllers))
-                {
-                    maxControllerCount = ArrayCount(newInput->controllers);
-                }
-                
-                for (DWORD controllerIndex = 0;
-                     controllerIndex < maxControllerCount;
-                     ++controllerIndex)
-                {
-                    XINPUT_STATE controllerState;
-                    
-                    if (XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
-                    {
-                        GameController* oldController = &oldInput->controllers[controllerIndex];
-                        GameController* newController = &newInput->controllers[controllerIndex];
-                        
-                        newController->isAnalog = true;
-                        
-                        XINPUT_GAMEPAD* pad = &controllerState.Gamepad;
-                        
-                        b32 up = pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
-                        b32 down = pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
-                        b32 left = pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
-                        b32 right = pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
-                        
-                        /*b32 start = pad->wButtons & XINPUT_GAMEPAD_START;
-                        b32 back = pad->wButtons & XINPUT_GAMEPAD_BACK;*/
-                        
-                        // TODO(yuval & eran): Do this only in first pole each frame
-                        newController->startX = oldController->startX;
-                        newController->startY = oldController->startY;
-                        
-                        newController->endX = newController->minX = newController->maxX =
-                            Win32NormalizeXInputStick(pad->sThumbLX);
-                        
-                        newController->endY = newController->minY = newController->maxY =
-                            Win32NormalizeXInputStick(pad->sThumbLY);
-                        
-                        Win32ProcessXInputButton(pad->wButtons,
-                                                 XINPUT_GAMEPAD_Y,
-                                                 &oldController->up,
-                                                 &newController->up);
-                        
-                        Win32ProcessXInputButton(pad->wButtons,
-                                                 XINPUT_GAMEPAD_A,
-                                                 &oldController->down,
-                                                 &newController->down);
-                        
-                        Win32ProcessXInputButton(pad->wButtons,
-                                                 XINPUT_GAMEPAD_X,
-                                                 &oldController->left,
-                                                 &newController->left);
-                        
-                        Win32ProcessXInputButton(pad->wButtons,
-                                                 XINPUT_GAMEPAD_B,
-                                                 &oldController->right,
-                                                 &newController->right);
-                        
-                        Win32ProcessXInputButton(pad->wButtons,
-                                                 XINPUT_GAMEPAD_LEFT_SHOULDER,
-                                                 &oldController->leftShoulder,
-                                                 &newController->leftShoulder);
-                        
-                        Win32ProcessXInputButton(pad->wButtons,
-                                                 XINPUT_GAMEPAD_RIGHT_SHOULDER,
-                                                 &oldController->rightShoulder,
-                                                 &newController->rightShoulder);
-                    }
-                    else
-                    {
-                        // NOTE(yuval & eran): The contorller is not connected
-                        // TODO(yuval & eran): Better log
-                        // LogInfo("Controller: %u is not connected!", controller);
-                    }
-                }
-                
-                b32 soundIsValid = false;
-                
-                DWORD playCursor = 0;
-                DWORD writeCursor = 0;
-                DWORD byteToLock = 0;
-                DWORD bytesToWrite = 0;
-                
-                if (SUCCEEDED(globalSeconderyBuffer->
-                              GetCurrentPosition(&playCursor, &writeCursor)))
-                {
-                    soundIsValid = true;
-                    
-                    byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample)
-                        % soundOutput.seconderyBufferSize;
-                    
-                    if (byteToLock > playCursor)
-                    {
-                        bytesToWrite = soundOutput.seconderyBufferSize - byteToLock;
-                        bytesToWrite += playCursor;
-                    }
-                    else
-                    {
-                        bytesToWrite = playCursor - byteToLock;
-                    }
-                }
-                
-                GameOffscreenBuffer offscreenBuffer = { };
-                offscreenBuffer.memory = globalBackbuffer.memory;
-                offscreenBuffer.width = globalBackbuffer.width;
-                offscreenBuffer.height = globalBackbuffer.height;
-                offscreenBuffer.pitch = globalBackbuffer.pitch;
-                
-                GameSoundOutputBuffer soundBuffer = { };
-                soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
-                soundBuffer.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
-                soundBuffer.samples = samples;
-                
-                GameUpdateAndRender(&gameMemory, newInput, &offscreenBuffer, &soundBuffer);
-                
-                if (soundIsValid)
-                {
-                    Win32FillSoundBuffer(globalSeconderyBuffer,
-                                         &soundBuffer, &soundOutput,
-                                         byteToLock, bytesToWrite);
-                }
-                
-                Win32WindowDimension dim = Win32GetWindowDimension(window);
-                Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
-                
+                globalRunning = true;
 #if 0
-                u64 endCycleCount = __rdtsc();
+                u64 lastCycleCount = __rdtsc();
                 
-                LARGE_INTEGER endCounter;
-                QueryPerformanceCounter(&endCounter);
-                
-                u64 cyclesElapsed = endCycleCount - lastCycleCount;
-                s64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
-                
-                r32 msPerFrame = (1000.0f * (r32)counterElapsed) / (r32)perfCountFrequency;
-                r32 fps = (r32)perfCountFrequency / (r32)counterElapsed;
-                r32 mcpf = (r32)cyclesElapsed / 1000000.0f;
-                
-                LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
-                
-                lastCycleCount = endCycleCount;
-                lastCounter = endCounter;
+                LARGE_INTEGER lastCounter;
+                QueryPerformanceCounter(&lastCounter);
 #endif
                 
-                // TODO(yuval & eran): Metaprogramming SWAP
-                GameInput* temp = newInput;
-                newInput = oldInput;
-                oldInput = temp;
+                while (globalRunning)
+                {
+                    GameController* oldKeyboardController = &oldInput->controllers[0];
+                    GameController* newKeyboardController = &newInput->controllers[0];
+                    
+                    // TODO(yuval & eran): Zero The Struct Using A Function
+                    GameController zeroController = { };
+                    *newKeyboardController = zeroController;
+                    
+                    for (s32 buttonIndex = 0;
+                         buttonIndex < ArrayCount(newKeyboardController->buttons);
+                         ++buttonIndex)
+                    {
+                        newKeyboardController->buttons[buttonIndex].endedDown =
+                            oldKeyboardController->buttons[buttonIndex].endedDown;
+                    }
+                    
+                    Win32ProcessPendingMessages(newKeyboardController);
+                    
+                    DWORD maxControllerCount = XUSER_MAX_COUNT + 1;
+                    
+                    if (maxControllerCount > ArrayCount(newInput->controllers))
+                    {
+                        maxControllerCount = ArrayCount(newInput->controllers);
+                    }
+                    
+                    for (DWORD controllerIndex = 1;
+                         controllerIndex < maxControllerCount;
+                         ++controllerIndex)
+                    {
+                        XINPUT_STATE controllerState;
+                        
+                        if (XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
+                        {
+                            GameController* oldController = &oldInput->controllers[controllerIndex];
+                            GameController* newController = &newInput->controllers[controllerIndex];
+                            
+                            newController->isAnalog = true;
+                            
+                            XINPUT_GAMEPAD* pad = &controllerState.Gamepad;
+                            
+                            // NOTE(yuval): Stick Processing
+                            newController->stickAverageX =
+                                Win32NormalizeXInputStick(pad->sThumbLX,
+                                                          XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                            
+                            
+                            newController->stickAverageY =
+                                Win32NormalizeXInputStick(pad->sThumbLY,
+                                                          XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+                            
+                            r32 threshold = 0.5f;
+                            
+                            // NOTE(yuval): Stick X Fake Digital Button Processing
+                            Win32ProcessXInputDigitalButton(
+                                (newController->stickAverageX < -threshold) ? 1 : 0,
+                                1,
+                                &oldController->moveLeft,
+                                &newController->moveLeft);
+                            
+                            Win32ProcessXInputDigitalButton(
+                                (newController->stickAverageX > threshold) ? 1 : 0,
+                                1,
+                                &oldController->moveRight,
+                                &newController->moveRight);
+                            
+                            // NOTE(yuval): Stick Y Fake Digital Button Processing
+                            Win32ProcessXInputDigitalButton(
+                                (newController->stickAverageY < -threshold) ? 1 : 0,
+                                1,
+                                &oldController->moveDown,
+                                &newController->moveDown);
+                            
+                            Win32ProcessXInputDigitalButton(
+                                (newController->stickAverageY > threshold) ? 1 : 0,
+                                1,
+                                &oldController->moveUp,
+                                &newController->moveUp);
+                            
+                            // NOTE(yuval): DPAD Processing
+                            
+                            
+                            // NOTE(yuval): Digital Button Processing
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_Y,
+                                                            &oldController->actionUp,
+                                                            &newController->actionUp);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_Y,
+                                                            &oldController->actionUp,
+                                                            &newController->actionUp);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_A,
+                                                            &oldController->actionDown,
+                                                            &newController->actionDown);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_X,
+                                                            &oldController->actionLeft,
+                                                            &newController->actionLeft);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_B,
+                                                            &oldController->actionRight,
+                                                            &newController->actionRight);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_LEFT_SHOULDER,
+                                                            &oldController->leftShoulder,
+                                                            &newController->leftShoulder);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                                                            &oldController->rightShoulder,
+                                                            &newController->rightShoulder);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_START,
+                                                            &oldController->start,
+                                                            &newController->start);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_BACK,
+                                                            &oldController->back,
+                                                            &newController->back);
+                        }
+                        else
+                        {
+                            // NOTE(yuval & eran): The contorller is not connected
+                            // TODO(yuval & eran): Better log
+                            // LogInfo("Controller: %u is not connected!", controller);
+                        }
+                    }
+                    
+                    b32 soundIsValid = false;
+                    
+                    DWORD playCursor = 0;
+                    DWORD writeCursor = 0;
+                    DWORD byteToLock = 0;
+                    DWORD bytesToWrite = 0;
+                    
+                    if (SUCCEEDED(globalSeconderyBuffer->
+                                  GetCurrentPosition(&playCursor, &writeCursor)))
+                    {
+                        soundIsValid = true;
+                        
+                        byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample)
+                            % soundOutput.seconderyBufferSize;
+                        
+                        if (byteToLock > playCursor)
+                        {
+                            bytesToWrite = soundOutput.seconderyBufferSize - byteToLock;
+                            bytesToWrite += playCursor;
+                        }
+                        else
+                        {
+                            bytesToWrite = playCursor - byteToLock;
+                        }
+                    }
+                    
+                    GameOffscreenBuffer offscreenBuffer = { };
+                    offscreenBuffer.memory = globalBackbuffer.memory;
+                    offscreenBuffer.width = globalBackbuffer.width;
+                    offscreenBuffer.height = globalBackbuffer.height;
+                    offscreenBuffer.pitch = globalBackbuffer.pitch;
+                    
+                    GameSoundOutputBuffer soundBuffer = { };
+                    soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
+                    soundBuffer.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
+                    soundBuffer.samples = samples;
+                    
+                    GameUpdateAndRender(&gameMemory, newInput, &offscreenBuffer, &soundBuffer);
+                    
+                    if (soundIsValid)
+                    {
+                        Win32FillSoundBuffer(globalSeconderyBuffer,
+                                             &soundBuffer, &soundOutput,
+                                             byteToLock, bytesToWrite);
+                    }
+                    
+                    Win32WindowDimension dim = Win32GetWindowDimension(window);
+                    Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
+                    
+#if 0
+                    u64 endCycleCount = __rdtsc();
+                    
+                    LARGE_INTEGER endCounter;
+                    QueryPerformanceCounter(&endCounter);
+                    
+                    u64 cyclesElapsed = endCycleCount - lastCycleCount;
+                    s64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
+                    
+                    r32 msPerFrame = (1000.0f * (r32)counterElapsed) / (r32)perfCountFrequency;
+                    r32 fps = (r32)perfCountFrequency / (r32)counterElapsed;
+                    r32 mcpf = (r32)cyclesElapsed / 1000000.0f;
+                    
+                    LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
+                    
+                    lastCycleCount = endCycleCount;
+                    lastCounter = endCounter;
+#endif
+                    
+                    // TODO(yuval & eran): Metaprogramming SWAP
+                    GameInput* temp = newInput;
+                    newInput = oldInput;
+                    oldInput = temp;
+                }
             }
+            else
+            {
+                // TODO(yuval & eran): LogFatal("Memory Allocation Failed!");
+            }
+        }
+        else
+        {
+            // TODO(yuval & eran): LogFatal("Window Creation Failed!");
         }
     }
     else
     {
-        LogError("Window Class Registration Failed!");
+        // TODO(yuval & eran): LogFatal("Window Class Registration Failed!");
     }
     
     return 0;

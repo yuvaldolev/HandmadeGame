@@ -209,6 +209,15 @@ OutChars(FormatDest* dest, const char* value)
 }
 
 internal void
+OutString(FormatDest* dest, String value)
+{
+    while (value.count--)
+    {
+        OutChar(dest, *value.data++);
+    }
+}
+
+internal void
 OutCharsLowercase(FormatDest* dest, const char* value)
 {
     while (*value)
@@ -229,7 +238,7 @@ OutCharsUppercase(FormatDest* dest, const char* value)
 internal void
 U64ToASCII(FormatDest* dest, u64 value, u32 base, const char* digits)
 {
-    // TODO(yuval & eran): Assert that base is not 0
+    Assert(base != 0);
     
     char* start = dest->at;
     
@@ -387,7 +396,7 @@ FormatStringList(char* destInit, umm destSize,
                     }
                     else
                     {
-                        // TODO(yuval & eran): Assert
+                        Assert(!"Malformed Precision Specifier!");
                     }
                 }
                 
@@ -550,7 +559,7 @@ FormatStringList(char* destInit, umm destSize,
                     
                     default:
                     {
-                        // TODO(yuval & eran): Assert
+                        Assert(!"Unrecognized Format Specifier!");
                     } break;
                 }
                 

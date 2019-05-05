@@ -75,17 +75,8 @@ struct GameController
 {
     b32 isAnalog;
     
-    r32 startX;
-    r32 startY;
-    
-    r32 endX;
-    r32 endY;
-    
-    r32 minX;
-    r32 minY;
-    
-    r32 maxX;
-    r32 maxY;
+    r32 stickAverageX;
+    r32 stickAverageY;
     
     union
     {
@@ -93,19 +84,28 @@ struct GameController
         
         struct
         {
-            GameButtonState up;
-            GameButtonState down;
-            GameButtonState left;
-            GameButtonState right;
+            GameButtonState moveUp;
+            GameButtonState moveDown;
+            GameButtonState moveLeft;
+            GameButtonState moveRight;
+            
+            GameButtonState actionUp;
+            GameButtonState actionDown;
+            GameButtonState actionLeft;
+            GameButtonState actionRight;
+            
             GameButtonState leftShoulder;
             GameButtonState rightShoulder;
+            
+            GameButtonState back;
+            GameButtonState start;
         };
     };
 };
 
 struct GameInput
 {
-    GameController controllers[4];
+    GameController controllers[5];
 };
 
 struct GameMemory
