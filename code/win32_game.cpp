@@ -59,6 +59,7 @@ typedef DIRECT_SOUND_CREATE(DirectSoundCreateType);
 global_variable bool globalRunning;
 global_variable Win32Backbuffer globalBackbuffer;
 global_variable IDirectSoundBuffer* globalSeconderyBuffer;
+global_variable s64 globalPerfCountFrequency;
 
 // TODO(yuval & eran): Temporary!
 void
@@ -220,6 +221,22 @@ DEBUGPlatformFreeFileMemory(void* memory)
     }
 }
 
+internal LARGE_INTEGER
+Win32GetWallClock()
+{
+    LARGE_INTEGER result;
+    QueryPerformanceCounter(&result);
+    return result;
+}
+
+internal r32
+Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
+{
+    r32 result = (r32(end.QuadPart - start.QuadPart) /
+                  (r32)globalPerfCountFrequency);
+    return result;
+}
+
 internal void
 Win32ProcessKeyboardMessage(GameButtonState* newState, b32 isDown)
 {
@@ -325,13 +342,13 @@ Win32ClearSoundBuffer(IDirectSoundBuffer* soundBuffer,
         Assert(!region2Size);
         
         s8* destSample = (s8*)region1;
-        for (DWORD sampleIndex = 0; sampleIndex < region1Size; ++sampleIndex)
+        for (DWORD byteIndex = 0; byteIndex < region1Size; ++byteIndex)
         {
             *destSample++ = 0;
         }
         
         destSample = (s8*)region2;
-        for (DWORD sampleIndex = 0; sampleIndex < region2Size; ++sampleIndex)
+        for (DWORD byteIndex = 0; byteIndex < region2Size; ++byteIndex)
         {
             *destSample++ = 0;
         }
@@ -608,11 +625,12 @@ Win32ProcessPendingMessages(GameController* keyboardController)
                         
                         case VK_ESCAPE:
                         {
-                            
+                            Win32ProcessKeyboardMessage(&keyboardController->back, isDown);
                         } break;
                         
                         case VK_SPACE:
                         {
+                            Win32ProcessKeyboardMessage(&keyboardController->start, isDown);
                         } break;
                     }
                 }
@@ -622,7 +640,7 @@ Win32ProcessPendingMessages(GameController* keyboardController)
             {
                 TranslateMessage(&message);
                 DispatchMessageA(&message);
-            }
+            } break;
         }
     }
     
@@ -648,7 +666,6 @@ Win32MainWindowCallback(HWND window, UINT message,
         {
             globalRunning = false;
         } break;
-        
         
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
@@ -691,7 +708,10 @@ WinMain(HINSTANCE instance,
 {
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);
-    s64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
+    globalPerfCountFrequency = perfCountFrequencyResult.QuadPart;
+    
+    UINT desiredSchedulerMS = 1;
+    b32 sleepIsGranular = (timeBeginPeriod(desiredSchedulerMS) == TIMERR_NOERROR);
     
     // TODO(yuval & eran): This is temporary
     Win32OpenConsole();
@@ -707,6 +727,10 @@ WinMain(HINSTANCE instance,
     windowClass.hInstance = instance;
     // HICON     hIcon;
     windowClass.lpszClassName = "HandmadeGameWindowClass";
+    
+    s32 monitorRefreshRate = 60;
+    s32 gameUpdateHz = monitorRefreshRate / 2;
+    r32 targetSecondsPerFrame = 1.0f / gameUpdateHz;
     
     if (RegisterClassA(&windowClass))
     {
@@ -746,14 +770,14 @@ WinMain(HINSTANCE instance,
                                               MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             
 #if GAME_INTERNAL
-            void* baseAddress = (void*)Terabytes((u64)2);
+            void* baseAddress = (void*)Terabytes(2);
 #else
             void* baseAddress = 0;
 #endif
             
             GameMemory gameMemory = { };
             gameMemory.permanentStorageSize = Megabytes(64);
-            gameMemory.transientStorageSize = Gigabytes((u64)1);
+            gameMemory.transientStorageSize = Gigabytes(1);
             
             u64 totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
             
@@ -769,12 +793,10 @@ WinMain(HINSTANCE instance,
                 GameInput* oldInput = &inputs[1];
                 
                 globalRunning = true;
-#if 0
+                
                 u64 lastCycleCount = __rdtsc();
                 
-                LARGE_INTEGER lastCounter;
-                QueryPerformanceCounter(&lastCounter);
-#endif
+                LARGE_INTEGER lastCounter = Win32GetWallClock();
                 
                 while (globalRunning)
                 {
@@ -784,6 +806,8 @@ WinMain(HINSTANCE instance,
                     // TODO(yuval & eran): Zero The Struct Using A Function
                     GameController zeroController = { };
                     *newKeyboardController = zeroController;
+                    newKeyboardController->isConnected = true;
+                    newKeyboardController->isAnalog = false;
                     
                     for (s32 buttonIndex = 0;
                          buttonIndex < ArrayCount(newKeyboardController->buttons);
@@ -808,12 +832,12 @@ WinMain(HINSTANCE instance,
                     {
                         XINPUT_STATE controllerState;
                         
-                        if (XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
+                        GameController* oldController = &oldInput->controllers[controllerIndex];
+                        GameController* newController = &newInput->controllers[controllerIndex];
+                        
+                        if (XInputGetState(controllerIndex - 1, &controllerState) == ERROR_SUCCESS)
                         {
-                            GameController* oldController = &oldInput->controllers[controllerIndex];
-                            GameController* newController = &newInput->controllers[controllerIndex];
-                            
-                            newController->isAnalog = true;
+                            newController->isConnected = true;
                             
                             XINPUT_GAMEPAD* pad = &controllerState.Gamepad;
                             
@@ -856,7 +880,53 @@ WinMain(HINSTANCE instance,
                                 &newController->moveUp);
                             
                             // NOTE(yuval): DPAD Processing
+                            // NOTE(yuval): DPAD Processing as fake stick
+                            newController->isAnalog = true;
                             
+                            if (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP)
+                            {
+                                newController->stickAverageY = 1.0f;
+                                newController->isAnalog = false;
+                            }
+                            
+                            if (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN)
+                            {
+                                newController->stickAverageY = -1.0f;
+                                newController->isAnalog = false;
+                            }
+                            
+                            if (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT)
+                            {
+                                newController->stickAverageX = -1.0f;
+                                newController->isAnalog = false;
+                            }
+                            
+                            if (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT)
+                            {
+                                newController->stickAverageX = 1.0f;
+                                newController->isAnalog = false;
+                            }
+                            
+                            // NOTE(yuval): DPAD Processing as digital button
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_DPAD_UP,
+                                                            &oldController->moveUp,
+                                                            &newController->moveUp);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_DPAD_DOWN,
+                                                            &oldController->moveDown,
+                                                            &newController->moveDown);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_DPAD_LEFT,
+                                                            &oldController->moveLeft,
+                                                            &newController->moveLeft);
+                            
+                            Win32ProcessXInputDigitalButton(pad->wButtons,
+                                                            XINPUT_GAMEPAD_DPAD_RIGHT,
+                                                            &oldController->moveRight,
+                                                            &newController->moveRight);
                             
                             // NOTE(yuval): Digital Button Processing
                             Win32ProcessXInputDigitalButton(pad->wButtons,
@@ -906,9 +976,7 @@ WinMain(HINSTANCE instance,
                         }
                         else
                         {
-                            // NOTE(yuval & eran): The contorller is not connected
-                            // TODO(yuval & eran): Better log
-                            // LogInfo("Controller: %u is not connected!", controller);
+                            newController->isConnected = false;
                         }
                     }
                     
@@ -961,14 +1029,41 @@ WinMain(HINSTANCE instance,
                     Win32WindowDimension dim = Win32GetWindowDimension(window);
                     Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
                     
+                    LARGE_INTEGER workCounter = Win32GetWallClock();
+                    r32 workSecondsElapsed = Win32GetSecondsElapsed(lastCounter, workCounter);
+                    
+                    r32 secondsElapsedForFrame = workSecondsElapsed;
+                    if (secondsElapsedForFrame <= targetSecondsPerFrame)
+                    {
+                        while (secondsElapsedForFrame < targetSecondsPerFrame)
+                        {
+                            if (sleepIsGranular)
+                            {
+                                DWORD sleepMS = (DWORD)(1000.0f * (targetSecondsPerFrame - secondsElapsedForFrame));
+                                Sleep(sleepMS);
+                            }
+                            
+                            secondsElapsedForFrame = Win32GetSecondsElapsed(lastCounter,
+                                                                            Win32GetWallClock());
+                            
+                        }
+                    }
+                    else
+                    {
+                        // TODO(eran & yuval): MISSED FRAME RATE!
+                        LogInfo("Frame Rate Of %d Missed", gameUpdateHz);
+                    }
+                    
+                    LARGE_INTEGER endCounter = Win32GetWallClock();
+                    r32 msPerFrame = (1000.0f * Win32GetSecondsElapsed(lastCounter, endCounter));
+                    r32 fps = ((r32)globalPerfCountFrequency /
+                               (r32)(endCounter.QuadPart - lastCounter.QuadPart));
+                    
+                    LogDebug("%.2fms/f,  %.2ff/s", msPerFrame, fps);
 #if 0
                     u64 endCycleCount = __rdtsc();
                     
-                    LARGE_INTEGER endCounter;
-                    QueryPerformanceCounter(&endCounter);
-                    
                     u64 cyclesElapsed = endCycleCount - lastCycleCount;
-                    s64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
                     
                     r32 msPerFrame = (1000.0f * (r32)counterElapsed) / (r32)perfCountFrequency;
                     r32 fps = (r32)perfCountFrequency / (r32)counterElapsed;
@@ -977,13 +1072,14 @@ WinMain(HINSTANCE instance,
                     LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
                     
                     lastCycleCount = endCycleCount;
-                    lastCounter = endCounter;
 #endif
                     
                     // TODO(yuval & eran): Metaprogramming SWAP
                     GameInput* temp = newInput;
                     newInput = oldInput;
                     oldInput = temp;
+                    
+                    lastCounter = endCounter;
                 }
             }
             else

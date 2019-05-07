@@ -73,6 +73,7 @@ struct GameButtonState
 
 struct GameController
 {
+    b32 isConnected;
     b32 isAnalog;
     
     r32 stickAverageX;
@@ -80,7 +81,7 @@ struct GameController
     
     union
     {
-        GameButtonState buttons[6];
+        GameButtonState buttons[12];
         
         struct
         {
@@ -99,6 +100,9 @@ struct GameController
             
             GameButtonState back;
             GameButtonState start;
+            
+            // IMPORTANT(yuval): Add new buttons before this ButtonState
+            GameButtonState terminator;
         };
     };
 };

@@ -6,7 +6,7 @@
 #define global_variable static
 #define local_persist static
 
-#define Pi32 3.14159265359
+#define Pi32 3.14159265359f
 
 /*
    NOTE(yuval): Build Options
@@ -26,10 +26,10 @@ GAME_INTERNAL:
 #endif
 
 // TODO(yuval & eran): Move this to another file
-#define Kilobytes(value) (1024 * (value))
-#define Megabytes(value) (1024 * Kilobytes(value))
-#define Gigabytes(value) (1024 * Megabytes(value))
-#define Terabytes(value) (1024 * Gigabytes(value))
+#define Kilobytes(value) (1024LL * (value))
+#define Megabytes(value) (1024LL * Kilobytes(value))
+#define Gigabytes(value) (1024LL * Megabytes(value))
+#define Terabytes(value) (1024LL * Gigabytes(value))
 
 // NOTE(yuval): To be used only in the same function
 // where the array was defined!

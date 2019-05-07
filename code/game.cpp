@@ -30,7 +30,7 @@ GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
 {
     local_persist r32 tSine;
     
-    const s32 TONE_VOLUME = 4000;
+    const s16 TONE_VOLUME = 10000;
     const s32 WAVE_PERIOD = buffer->samplesPerSecond / toneHz;
     
     s16* sampleOut = (s16*)buffer->samples;
@@ -44,7 +44,7 @@ GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         
-        tSine -= 2.0f * (r32)Pi32 * (1.0f / (r32)WAVE_PERIOD);
+        tSine += 2.0f * Pi32 * (1.0f / (r32)WAVE_PERIOD);
     }
 }
 
@@ -53,6 +53,9 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
                     GameOffscreenBuffer* offscreenBuffer,
                     GameSoundOutputBuffer* soundBuffer)
 {
+    Assert((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) ==
+           ArrayCount(input->controllers[0].buttons));
+    
     Assert(sizeof(GameMemory) <= memory->permanentStorageSize);
     
     GameState* gameState = (GameState*)memory->permanentStorage;
@@ -78,38 +81,41 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     {
         GameController* controller = &input->controllers[controllerIndex];
         
-        if (controller->isAnalog)
+        if (controller->isConnected)
         {
-            // TODO(yuval & eran): Analog controller tuning
-            gameState->blueOffset -= (s32)(4.0f * controller->stickAverageX);
-            gameState->greenOffset += (s32)(4.0f * controller->stickAverageY);
-            gameState->toneHz = 256 + (s32)(128.0f * controller->stickAverageY);
+            if (controller->isAnalog)
+            {
+                // TODO(yuval & eran): Analog controller tuning
+                gameState->blueOffset -= (s32)(4.0f * controller->stickAverageX);
+                gameState->greenOffset += (s32)(4.0f * controller->stickAverageY);
+                gameState->toneHz = 256 + (s32)(128.0f * controller->stickAverageX);
+            }
+            else
+            {
+                // TODO(yuval & eran): Digital controller tuning
+                if (controller->moveUp.endedDown)
+                {
+                    gameState->greenOffset += 1;
+                }
+                
+                if (controller->moveDown.endedDown)
+                {
+                    gameState->greenOffset -= 1;
+                }
+                
+                if (controller->moveRight.endedDown)
+                {
+                    gameState->blueOffset -= 1;
+                    gameState->toneHz = 256 + 128;
+                }
+                
+                if (controller->moveLeft.endedDown)
+                {
+                    gameState->blueOffset += 1;
+                    gameState->toneHz = 256 - 128;
+                }
+            }
         }
-        else
-        {
-            // TODO(yuval & eran): Digital controller tuning
-        }
-        
-        if (controller->moveUp.endedDown)
-        {
-            gameState->greenOffset += 1;
-        }
-        
-        if (controller->moveDown.endedDown)
-        {
-            gameState->greenOffset -= 1;
-        }
-        
-        if (controller->moveRight.endedDown)
-        {
-            gameState->toneHz = 256 + 128;
-        }
-        
-        if (controller->moveLeft.endedDown)
-        {
-            gameState->toneHz = 256 - 128;
-        }
-        
     }
     
     GameOutputSound(soundBuffer, gameState->toneHz);
