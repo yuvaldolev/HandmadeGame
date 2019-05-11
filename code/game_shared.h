@@ -8,7 +8,7 @@ va_arg(argList, u64) : va_arg(argList, u32)
 #define ReadVarArgSignedInteger(length, argList) (length == 8) ? \
 va_arg(argList, s64) : va_arg(argList, s32)
 
-#define ReadVarArgFloat(length, argList) va_arg(argList, r64)
+#define ReadVarArgFloat(length, argList) va_arg(argList, f64)
 
 #define CopyArray(dest, source, count) Copy(dest, source, \
 sizeof(*source) * count)
@@ -264,7 +264,7 @@ U64ToASCII(FormatDest* dest, u64 value, u32 base, const char* digits)
 }
 
 internal void
-F64ToASCII(FormatDest* dest, r64 value, u32 precision)
+F64ToASCII(FormatDest* dest, f64 value, u32 precision)
 {
     if (value < 0)
     {
@@ -279,6 +279,7 @@ F64ToASCII(FormatDest* dest, r64 value, u32 precision)
     
     OutChar(dest, '.');
     
+    // TODO(yuval & eran): Round to the precision
     for (u32 precisionIndex = 0;
          precisionIndex < precision;
          precisionIndex++)
@@ -499,7 +500,7 @@ FormatStringList(char* destInit, umm destSize,
                     case 'a':
                     case 'A':
                     {
-                        r64 value = ReadVarArgFloat(floatLength, argList);
+                        f64 value = ReadVarArgFloat(floatLength, argList);
                         F64ToASCII(&tempDest, value, precision);
                         isFloat = true;
                     } break;

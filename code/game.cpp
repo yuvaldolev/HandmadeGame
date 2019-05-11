@@ -28,7 +28,7 @@ RenderGradient(GameOffscreenBuffer* buffer, s32 xOffset, s32 yOffset)
 internal void
 GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
 {
-    local_persist r32 tSine;
+    local_persist f32 tSine;
     
     const s16 TONE_VOLUME = 10000;
     const s32 WAVE_PERIOD = buffer->samplesPerSecond / toneHz;
@@ -39,19 +39,18 @@ GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
          sampleIndex < buffer->sampleCount;
          ++sampleIndex)
     {
-        r32 sineValue = sinf(tSine);
+        f32 sineValue = sinf(tSine);
         s16 sampleValue = (s16)(sineValue * TONE_VOLUME);
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         
-        tSine += 2.0f * Pi32 * (1.0f / (r32)WAVE_PERIOD);
+        tSine += 2.0f * Pi32 * (1.0f / (f32)WAVE_PERIOD);
     }
 }
 
 void
 GameUpdateAndRender(GameMemory* memory, GameInput* input,
-                    GameOffscreenBuffer* offscreenBuffer,
-                    GameSoundOutputBuffer* soundBuffer)
+                    GameOffscreenBuffer* offscreenBuffer)
 {
     Assert((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) ==
            ArrayCount(input->controllers[0].buttons));
@@ -59,7 +58,6 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     Assert(sizeof(GameMemory) <= memory->permanentStorageSize);
     
     GameState* gameState = (GameState*)memory->permanentStorage;
-    gameState->toneHz = 256;
     
     if (!memory->isInitialized)
     {
@@ -74,6 +72,8 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
         
         memory->isInitialized = true;
     }
+    
+    gameState->toneHz = 256;
     
     for (s32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
@@ -106,19 +106,25 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
                 if (controller->moveRight.endedDown)
                 {
                     gameState->blueOffset -= 1;
-                    gameState->toneHz = 256 + 128;
+                    gameState->toneHz = 256 + 64;
                 }
                 
                 if (controller->moveLeft.endedDown)
                 {
                     gameState->blueOffset += 1;
-                    gameState->toneHz = 256 - 128;
+                    gameState->toneHz = 256 - 64;
                 }
             }
         }
     }
     
-    GameOutputSound(soundBuffer, gameState->toneHz);
     RenderGradient(offscreenBuffer, gameState->blueOffset,
                    gameState->greenOffset);
+}
+
+void
+GameGetSoundSamples(GameMemory* memory, GameSoundOutputBuffer* soundBuffer)
+{
+    GameState* gameState = (GameState*)memory->permanentStorage;
+    GameOutputSound(soundBuffer, gameState->toneHz);
 }

@@ -42,7 +42,7 @@ Log(LogLevelEnum level,
         LogFormatMessage(&msg);
         
         // NOTE(yuval): Log Message In Color
-        PlatformWriteLogMsgInColor(&msg);
+        PlatformWriteLogMsg(&msg);
         
         // NOTE(yuval): End VA LIST
         va_end(argList);

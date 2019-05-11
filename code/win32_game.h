@@ -21,8 +21,23 @@ struct Win32SoundOutput
     s32 samplesPerSecond;
     u32 runningSampleIndex;
     s32 bytesPerSample;
-    s32 seconderyBufferSize;
-    s32 latencySampleCount;
+    u32 secondaryBufferSize;
+    DWORD safetyBytes;
+    // TODO(yuval & eran): Should runningSampleIndex be in bytes?
+    // TODO(yuval & eran): Math gets simples if we add a bytesPerSeocond field
+};
+
+struct DEBUGWin32TimeMarker
+{
+    DWORD outputPlayCursor;
+    DWORD outputWriteCursor;
+    DWORD outputLocation;
+    DWORD outputByteCount;
+    DWORD expectedFlipPlayCursor;
+    
+    
+    DWORD flipPlayCursor;
+    DWORD flipWriteCursor;
 };
 
 #define WIN32_GAME_H

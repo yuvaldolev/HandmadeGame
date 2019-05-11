@@ -5,6 +5,9 @@
 #include "game_memory.h"
 #include "game_log.h"
 
+////////////////////////////////////
+//          Platform API          //
+////////////////////////////////////
 // NOTE(yuval): Services that the platform provides to the game
 struct PlatformDateTime
 {
@@ -20,6 +23,10 @@ struct PlatformDateTime
 
 PlatformDateTime
 PlatformGetDateTime();
+
+// TODO(yuval & eran): Temporary!
+void
+PlatformWriteLogMsg(LogMsg* msg);
 
 #ifdef GAME_INTERNAL
 /*
@@ -44,10 +51,6 @@ b32
 DEBUGPlatformWriteEntireFile(const char* filename,
                              void* memory, u32 memorySize);
 #endif
-
-// TODO(yuval & eran): Temporary!
-void
-PlatformWriteLogMsgInColor(LogMsg* msg);
 
 // NOTE(yuval): Services that the game provides to the platform
 struct GameOffscreenBuffer
@@ -76,8 +79,8 @@ struct GameController
     b32 isConnected;
     b32 isAnalog;
     
-    r32 stickAverageX;
-    r32 stickAverageY;
+    f32 stickAverageX;
+    f32 stickAverageY;
     
     union
     {
@@ -133,8 +136,10 @@ struct GameMemory
 */
 void
 GameUpdateAndRender(GameMemory* memory, GameInput* input,
-                    GameOffscreenBuffer* offscreenBuffer,
-                    GameSoundOutputBuffer* soundBuffer);
+                    GameOffscreenBuffer* offscreenBuffer);
+
+void
+GameGetSoundSamples(GameMemory* memory, GameSoundOutputBuffer* soundBuffer);
 
 /////////////////////////////
 //          Game           //
