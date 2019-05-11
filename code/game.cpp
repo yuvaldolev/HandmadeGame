@@ -59,6 +59,7 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     Assert(sizeof(GameMemory) <= memory->permanentStorageSize);
     
     GameState* gameState = (GameState*)memory->permanentStorage;
+    gameState->toneHz = 256;
     
     if (!memory->isInitialized)
     {
@@ -68,7 +69,6 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
         
         LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
         
-        gameState->toneHz = 256;
         gameState->blueOffset = 0;
         gameState->greenOffset = 0;
         

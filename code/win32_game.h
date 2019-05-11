@@ -22,6 +22,7 @@ struct Win32SoundOutput
     u32 runningSampleIndex;
     s32 bytesPerSample;
     s32 seconderyBufferSize;
+    s32 latencySampleCount;
 };
 
 #define WIN32_GAME_H

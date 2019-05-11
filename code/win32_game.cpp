@@ -221,6 +221,43 @@ DEBUGPlatformFreeFileMemory(void* memory)
     }
 }
 
+internal void
+Win32DEBUGDisplayVertical(Win32Backbuffer* backbuffer, s32 x,
+                          s32 top, s32 bottom, u32 color)
+{
+    u8* pixel = ((u8*)backbuffer->memory +
+                 x * backbuffer->bytesPerPixel +
+                 top * backbuffer->pitch);
+    
+    for (s32 y = top; y < bottom; ++y)
+    {
+        *(u32*)pixel = color;
+        pixel += backbuffer->pitch;
+    }
+}
+
+internal void
+Win32DEBUGSyncDisplay(Win32Backbuffer* backbuffer,
+                      DWORD* playCursors, u32 playCursorsCount,
+                      Win32SoundOutput* soundOutput, r32 targetSecondsPerFrame)
+{
+    s32 padX = 16;
+    s32 padY = 16;
+    
+    s32 top = padY;
+    s32 bottom = backbuffer->height - padY;
+    
+    r32 c = (r32)(backbuffer->width - padX * 2) / (r32)soundOutput->seconderyBufferSize;
+    
+    for (u32 playCursorIndex = 0;
+         playCursorIndex < playCursorsCount;
+         ++playCursorIndex)
+    {
+        s32 x = padX + (s32)(playCursors[playCursorIndex] * c);
+        Win32DEBUGDisplayVertical(backbuffer, x, top, bottom, 0xFFFFFFFF);
+    }
+}
+
 internal LARGE_INTEGER
 Win32GetWallClock()
 {
@@ -728,9 +765,9 @@ WinMain(HINSTANCE instance,
     // HICON     hIcon;
     windowClass.lpszClassName = "HandmadeGameWindowClass";
     
-    s32 monitorRefreshRate = 60;
-    s32 gameUpdateHz = monitorRefreshRate / 2;
-    r32 targetSecondsPerFrame = 1.0f / gameUpdateHz;
+#define monitorRefreshRate 60
+#define gameUpdateHz (monitorRefreshRate / 2)
+#define targetSecondsPerFrame (1.0f / gameUpdateHz)
     
     if (RegisterClassA(&windowClass))
     {
@@ -759,6 +796,7 @@ WinMain(HINSTANCE instance,
             soundOutput.bytesPerSample = sizeof(s16) * 2;
             soundOutput.seconderyBufferSize = soundOutput.samplesPerSecond *
                 soundOutput.bytesPerSample;
+            soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
             
             Win32InitDSound(window, soundOutput.samplesPerSecond,
                             soundOutput.seconderyBufferSize);
@@ -797,6 +835,9 @@ WinMain(HINSTANCE instance,
                 u64 lastCycleCount = __rdtsc();
                 
                 LARGE_INTEGER lastCounter = Win32GetWallClock();
+                
+                DWORD DEBUGPlayCursors[gameUpdateHz / 2] = { };
+                u32 DEBUGLastPlayCursorIndex = 0;
                 
                 while (globalRunning)
                 {
@@ -984,6 +1025,7 @@ WinMain(HINSTANCE instance,
                     
                     DWORD playCursor = 0;
                     DWORD writeCursor = 0;
+                    DWORD targetCursor = 0;
                     DWORD byteToLock = 0;
                     DWORD bytesToWrite = 0;
                     
@@ -995,14 +1037,18 @@ WinMain(HINSTANCE instance,
                         byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample)
                             % soundOutput.seconderyBufferSize;
                         
-                        if (byteToLock > playCursor)
+                        targetCursor = ((playCursor +
+                                         (soundOutput.latencySampleCount * soundOutput.bytesPerSample)) %
+                                        soundOutput.seconderyBufferSize);
+                        
+                        if (byteToLock > targetCursor)
                         {
                             bytesToWrite = soundOutput.seconderyBufferSize - byteToLock;
-                            bytesToWrite += playCursor;
+                            bytesToWrite += targetCursor;
                         }
                         else
                         {
-                            bytesToWrite = playCursor - byteToLock;
+                            bytesToWrite = targetCursor - byteToLock;
                         }
                     }
                     
@@ -1026,9 +1072,6 @@ WinMain(HINSTANCE instance,
                                              byteToLock, bytesToWrite);
                     }
                     
-                    Win32WindowDimension dim = Win32GetWindowDimension(window);
-                    Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
-                    
                     LARGE_INTEGER workCounter = Win32GetWallClock();
                     r32 workSecondsElapsed = Win32GetSecondsElapsed(lastCounter, workCounter);
                     
@@ -1045,7 +1088,6 @@ WinMain(HINSTANCE instance,
                             
                             secondsElapsedForFrame = Win32GetSecondsElapsed(lastCounter,
                                                                             Win32GetWallClock());
-                            
                         }
                     }
                     else
@@ -1055,6 +1097,33 @@ WinMain(HINSTANCE instance,
                     }
                     
                     LARGE_INTEGER endCounter = Win32GetWallClock();
+                    
+#if GAME_INTERNAL
+                    Win32DEBUGSyncDisplay(&globalBackbuffer,
+                                          DEBUGPlayCursors, ArrayCount(DEBUGPlayCursors),
+                                          &soundOutput, targetSecondsPerFrame);
+#endif
+                    
+                    Win32WindowDimension dim = Win32GetWindowDimension(window);
+                    Win32DisplayBackbufferInWindow(deviceContext, &globalBackbuffer, dim.width, dim.height);
+                    
+                    // NOTE(yuval): This is debug code
+#if GAME_INTERNAL
+                    {
+                        Assert(DEBUGLastPlayCursorIndex < ArrayCount(DEBUGPlayCursors));
+                        
+                        DWORD lastPlayCursor;
+                        globalSeconderyBuffer->GetCurrentPosition(&lastPlayCursor, 0);
+                        
+                        DEBUGPlayCursors[DEBUGLastPlayCursorIndex++] = lastPlayCursor;
+                        
+                        if (DEBUGLastPlayCursorIndex == ArrayCount(DEBUGPlayCursors))
+                        {
+                            DEBUGLastPlayCursorIndex = 0;
+                        }
+                    }
+#endif
+                    
                     r32 msPerFrame = (1000.0f * Win32GetSecondsElapsed(lastCounter, endCounter));
                     r32 fps = ((r32)globalPerfCountFrequency /
                                (r32)(endCounter.QuadPart - lastCounter.QuadPart));
