@@ -7,6 +7,7 @@ set CommonLinkerFlags=-opt:ref user32.lib gdi32.lib Winmm.lib
 IF NOT EXIST ..\build mkdir ..\build
 
 pushd ..\build
+cl %CommonCompilerFlags% -Fmgame.map ..\code\game.cpp -LD /link /EXPORT:GameUpdateAndRender /EXPORT:GameGetSoundSamples /EXPORT:Log
 cl %CommonCompilerFlags% -Fmwin32_game.map ..\code\win32_game.cpp /link %CommonLinkerFlags%
 popd
 

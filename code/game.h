@@ -3,7 +3,17 @@
 #include "game_types.h"
 #include "game_shared.h"
 #include "game_memory.h"
-#include "game_log.h"
+
+/*
+   NOTE(yuval): Build Options
+GAME_INTERNAL:
+0 - Build for public release
+1 - Build for developers only
+
+ GAME_SLOW:
+ 0 - No slow code is allowed
+ 1 - Slow code is welcome
+*/
 
 ////////////////////////////////////
 //          Platform API          //
@@ -21,12 +31,12 @@ struct PlatformDateTime
     u16 milliseconds;
 };
 
-PlatformDateTime
-PlatformGetDateTime();
+#define PLATFORM_GET_DATE_TIME(name) PlatformDateTime name()
+typedef PLATFORM_GET_DATE_TIME(PlatformGetDateTimeType);
 
 // TODO(yuval & eran): Temporary!
-void
-PlatformWriteLogMsg(LogMsg* msg);
+#define PLATFORM_WRITE_LOG_MSG(name) void name(struct LogMsg* msg)
+typedef PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsgType);
 
 #ifdef GAME_INTERNAL
 /*
@@ -38,18 +48,18 @@ struct DEBUGReadFileResult
 {
     void* contents;
     u32 contentsSize;
-    
 };
 
-DEBUGReadFileResult
-DEBUGPlatformReadEntireFile(const char* filename);
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void* memory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemoryType);
 
-void
-DEBUGPlatformFreeFileMemory(void* memory);
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(const char* filename)
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFileType);
 
-b32
-DEBUGPlatformWriteEntireFile(const char* filename,
-                             void* memory, u32 memorySize);
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(const char* filename, \
+void* memory, u32 memorySize)
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
+
 #endif
 
 // NOTE(yuval): Services that the game provides to the platform
@@ -126,7 +136,15 @@ struct GameMemory
     u64 transientStorageSize;
     
     MemoryArena loggingArena;
+    
+    PlatformGetDateTimeType* PlatformGetDateTime;
+    PlatformWriteLogMsgType* PlatformWriteLogMsg;
+    DEBUGPlatformFreeFileMemoryType* DEBUGPlatformFreeFileMemory;
+    DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile;
+    DEBUGPlatformWriteEntireFileType* DEBUGPlatformWriteEntireFile;
 };
+
+#include "game_log.h" // TODO(yuval & eran): Move this back to the top
 
 /* GameUpdateAndRender gets 4 thing from the Platform:
    1. Timing
@@ -134,12 +152,20 @@ struct GameMemory
    3. Bitmap buffer to use
    4. Sound buffer to use
 */
-void
-GameUpdateAndRender(GameMemory* memory, GameInput* input,
-                    GameOffscreenBuffer* offscreenBuffer);
+#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory* memory, GameInput* input, \
+GameOffscreenBuffer* offscreenBuffer)
+typedef GAME_UPDATE_AND_RENDER(GameUpdateAndRenderType);
+GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
+{
+}
 
-void
-GameGetSoundSamples(GameMemory* memory, GameSoundOutputBuffer* soundBuffer);
+#define GAME_GET_SOUND_SAMPLES(name) void name(GameMemory* memory, \
+GameSoundOutputBuffer* soundBuffer)
+typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
+GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesStub)
+{
+}
+
 
 /////////////////////////////
 //          Game           //
@@ -149,6 +175,8 @@ struct GameState
     s32 toneHz;
     s32 blueOffset;
     s32 greenOffset;
+    
+    f32 tSine;
 };
 
 #define GAME_H

@@ -8,17 +8,6 @@
 
 #define Pi32 3.14159265359f
 
-/*
-   NOTE(yuval): Build Options
-GAME_INTERNAL:
-0 - Build for public release
-1 - Build for developers only
-
- GAME_SLOW:
- 0 - No slow code is allowed
- 1 - Slow code is welcome
-*/
-
 #if GAME_SLOW
 #define Assert(expression) if (!(expression)) { *(int*)0 = 0; }
 #else

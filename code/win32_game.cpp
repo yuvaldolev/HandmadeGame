@@ -1,4 +1,4 @@
-#include "game.cpp"
+#include "game.h"
 
 #include <windows.h>
 #include <dsound.h>
@@ -29,6 +29,19 @@
   
   This is a partial list
  */
+
+// TODO(yuval & eran): This is temporary!!! Remove this as soon as possible
+#define Win32LogInternal(level, format, ...) game.Log(level, \
+__FILE__, \
+__FUNCTION__, \
+__LINE__, \
+format, __VA_ARGS__)
+
+#define Win32LogDebug(format, ...) Win32LogInternal(LogLevelDebug, format, __VA_ARGS__)
+#define Win32LogInfo(format, ...) Win32LogInternal(LogLevelInfo, format, __VA_ARGS__)
+#define Win32LogWarn(format, ...) Win32LogInternal(LogLevelWarn, format, __VA_ARGS__)
+#define Win32LogError(format, ...) Win32LogInternal(LogLevelError, format, __VA_ARGS__)
+#define Win32LogFatal(format, ...) Win32LogInternal(LogLevelFatal, format, __VA_ARGS__)
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
 typedef X_INPUT_GET_STATE(XInputGetStateType);
@@ -62,8 +75,7 @@ global_variable Win32Backbuffer globalBackbuffer;
 global_variable IDirectSoundBuffer* globalSecondaryBuffer;
 global_variable s64 globalPerfCountFrequency;
 
-PlatformDateTime
-PlatformGetDateTime()
+PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
 {
     SYSTEMTIME localTime;
     GetLocalTime(&localTime);
@@ -121,14 +133,22 @@ PlatformWriteLogMsgInColor(LogMsg* msg)
 }
 #endif
 
-void
-PlatformWriteLogMsg(LogMsg* msg)
+PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsg)
 {
     OutputDebugStringA(msg->formatted);
 }
 
-DEBUGReadFileResult
-DEBUGPlatformReadEntireFile(const char* filename)
+
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+    if (memory)
+    {
+        VirtualFree(memory, 0, MEM_RELEASE);
+    }
+}
+
+// TODO(yuval & eran): Renable Logging in DEBUG read & write
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
 {
     DEBUGReadFileResult result = { };
     
@@ -159,35 +179,32 @@ DEBUGPlatformReadEntireFile(const char* filename)
                 }
                 else
                 {
-                    LogError("Reading File: %s Failed!", filename);
+                    // Win32LogError("Reading File: %s Failed!", filename);
                     DEBUGPlatformFreeFileMemory(result.contents);
                     result.contents = 0;
                 }
             }
             else
             {
-                LogError("Allocation Faliure While Read File: %s", filename);
+                // Win32LogError("Allocation Faliure While Read File: %s", filename);
             }
         }
         else
         {
-            LogError("Get File Size For: %s Failed!", filename);
+            // Win32LogError("Get File Size For: %s Failed!", filename);
         }
         
         CloseHandle(fileHandle);
     }
     else
     {
-        LogError("The File: %s Does Not Exist!", filename);
+        // Win32LogError("The File: %s Does Not Exist!", filename);
     }
     
     return result;
 }
 
-
-b32
-DEBUGPlatformWriteEntireFile(const char* filename,
-                             void* memory, u32 memorySize)
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
 {
     b32 result = false;
     
@@ -208,26 +225,17 @@ DEBUGPlatformWriteEntireFile(const char* filename,
         }
         else
         {
-            LogError("Writing To File: %s Failed!", filename);
+            // Win32LogError("Writing To File: %s Failed!", filename);
         }
         
         CloseHandle(fileHandle);
     }
     else
     {
-        LogError("Could Not Create Or Overwrite File: %s!", filename);
+        // Win32LogError("Could Not Create Or Overwrite File: %s!", filename);
     }
     
     return result;
-}
-
-void
-DEBUGPlatformFreeFileMemory(void* memory)
-{
-    if (memory)
-    {
-        VirtualFree(memory, 0, MEM_RELEASE);
-    }
 }
 
 internal void
@@ -372,7 +380,7 @@ Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
 internal void
 Win32ProcessKeyboardMessage(GameButtonState* newState, b32 isDown)
 {
-    Assert(newState->endedDown != isDown);
+    //Assert(newState->endedDown != isDown);
     newState->endedDown = isDown;
     ++newState->halfTransitionCount;
 }
@@ -452,7 +460,7 @@ Win32FillSoundBuffer(IDirectSoundBuffer* soundBuffer,
     else
     {
         // TODO(yuval & eran): Better log
-        //LogError("Buffer Locking Failed!");
+        //Win32LogError("Buffer Locking Failed!");
     }
 }
 
@@ -832,6 +840,53 @@ Win32MainWindowCallback(HWND window, UINT message,
     return result;
 }
 
+internal void
+Win32UnloadGameCode(Win32GameCode* gameCode)
+{
+    if (gameCode->gameCodeDLL)
+    {
+        FreeLibrary(gameCode->gameCodeDLL);
+        gameCode->gameCodeDLL = 0;
+    }
+    
+    gameCode->isValid = false;
+    gameCode->UpdateAndRender = GameUpdateAndRenderStub;
+    gameCode->GetSoundSamples = GameGetSoundSamplesStub;
+    gameCode->Log = LogStub;
+}
+
+internal Win32GameCode
+Win32LoadGameCode()
+{
+    Win32GameCode result = { };
+    
+    CopyFileA("game.dll", "game_temp.dll", FALSE);
+    result.gameCodeDLL = LoadLibrary("game_temp.dll");
+    
+    if (result.gameCodeDLL)
+    {
+        result.UpdateAndRender = (GameUpdateAndRenderType*)
+            GetProcAddress(result.gameCodeDLL, "GameUpdateAndRender");
+        result.GetSoundSamples = (GameGetSoundSamplesType*)
+            GetProcAddress(result.gameCodeDLL, "GameGetSoundSamples");
+        result.Log = (LogType*)
+            GetProcAddress(result.gameCodeDLL, "Log");
+        
+        result.isValid = (result.UpdateAndRender &&
+                          result.GetSoundSamples &&
+                          result.Log);
+    }
+    
+    if (!result.isValid)
+    {
+        result.UpdateAndRender = GameUpdateAndRenderStub;
+        result.GetSoundSamples = GameGetSoundSamplesStub;
+        result.Log = LogStub;
+    }
+    
+    return result;
+}
+
 s32 WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE prevInstance,
@@ -927,6 +982,12 @@ WinMain(HINSTANCE instance,
             gameMemory.permanentStorageSize = Megabytes(64);
             gameMemory.transientStorageSize = Gigabytes(1);
             
+            gameMemory.PlatformGetDateTime = PlatformGetDateTime;
+            gameMemory.PlatformWriteLogMsg = PlatformWriteLogMsg;
+            gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+            gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
+            gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+            
             u64 totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
             
             gameMemory.permanentStorage = VirtualAlloc(baseAddress, totalSize,
@@ -950,12 +1011,22 @@ WinMain(HINSTANCE instance,
                 DEBUGWin32TimeMarker DEBUGTimeMarkers[gameUpdateHz / 2] = { };
                 u32 DEBUGTimeMarkerIndex = 0;
                 
+                Win32GameCode game = Win32LoadGameCode();
+                u32 loadCounter = 0;
+                
                 LARGE_INTEGER lastCounter = Win32GetWallClock();
                 LARGE_INTEGER flipWallClock = Win32GetWallClock();
                 u64 lastCycleCount = __rdtsc();
                 
                 while (globalRunning)
                 {
+                    if (loadCounter++ > 120)
+                    {
+                        Win32UnloadGameCode(&game);
+                        game = Win32LoadGameCode();
+                        loadCounter = 0;
+                    }
+                    
                     GameController* oldKeyboardController = &oldInput->controllers[0];
                     GameController* newKeyboardController = &newInput->controllers[0];
                     
@@ -1144,7 +1215,7 @@ WinMain(HINSTANCE instance,
                         offscreenBuffer.height = globalBackbuffer.height;
                         offscreenBuffer.pitch = globalBackbuffer.pitch;
                         
-                        GameUpdateAndRender(&gameMemory, newInput, &offscreenBuffer);
+                        game.UpdateAndRender(&gameMemory, newInput, &offscreenBuffer);
                         
                         LARGE_INTEGER audioCounter = Win32GetWallClock();
                         f32 fromBeginToAudioSeconds = Win32GetSecondsElapsed(flipWallClock, audioCounter);
@@ -1209,13 +1280,13 @@ WinMain(HINSTANCE instance,
                             if (audioCardIsLowLatency)
                             {
                                 targetCursor = (expectedFrameBoundaryByte + expectedSoundBytesPerFrame);
-                                LogDebug("Low Latency");
+                                Win32LogDebug("Low Latency");
                             }
                             else
                             {
                                 targetCursor = (writeCursor + expectedSoundBytesPerFrame +
                                                 soundOutput.safetyBytes);
-                                LogDebug("High Latency");
+                                Win32LogDebug("High Latency");
                             }
                             targetCursor %= soundOutput.secondaryBufferSize;
                             
@@ -1234,7 +1305,7 @@ WinMain(HINSTANCE instance,
                             soundBuffer.samplesPerSecond = soundOutput.samplesPerSecond;
                             soundBuffer.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                             soundBuffer.samples = samples;
-                            GameGetSoundSamples(&gameMemory, &soundBuffer);
+                            game.GetSoundSamples(&gameMemory, &soundBuffer);
                             
 #if GAME_INTERNAL
                             DEBUGWin32TimeMarker* marker = &DEBUGTimeMarkers[DEBUGTimeMarkerIndex];
@@ -1262,12 +1333,12 @@ WinMain(HINSTANCE instance,
                                  (f32)soundOutput.samplesPerSecond);
                             
 #if GAME_INTERNAL
-                            LogDebug("BTL:%u, TC:%u, BTW:%u - PC:%u WC:%u DELTA:%u (%fs)",
-                                     byteToLock, targetCursor,
-                                     bytesToWrite, playCursor,
-                                     writeCursor,
-                                     audioLatencyBytes,
-                                     audioLatencySeconds);
+                            Win32LogDebug("BTL:%u, TC:%u, BTW:%u - PC:%u WC:%u DELTA:%u (%fs)",
+                                          byteToLock, targetCursor,
+                                          bytesToWrite, playCursor,
+                                          writeCursor,
+                                          audioLatencyBytes,
+                                          audioLatencySeconds);
 #endif
                         }
                         else
@@ -1296,7 +1367,7 @@ WinMain(HINSTANCE instance,
                             
                             if (secondsElapsedForFrame > targetSecondsPerFrame)
                             {
-                                LogError("Sleep Missed Frame Rate Of %d\n", gameUpdateHz);
+                                Win32LogError("Sleep Missed Frame Rate Of %d\n", gameUpdateHz);
                             }
                             
                             while (secondsElapsedForFrame < targetSecondsPerFrame)
@@ -1308,7 +1379,7 @@ WinMain(HINSTANCE instance,
                         else
                         {
                             // TODO(eran & yuval): MISSED FRAME RATE!
-                            LogInfo("Frame Rate Of %d Missed", gameUpdateHz);
+                            Win32LogInfo("Frame Rate Of %d Missed", gameUpdateHz);
                         }
                         
                         flipWallClock = Win32GetWallClock();
@@ -1353,7 +1424,7 @@ WinMain(HINSTANCE instance,
                         f32 fps = ((f32)globalPerfCountFrequency /
                                    (f32)(flipWallClock.QuadPart - lastCounter.QuadPart));
                         
-                        LogDebug("%.2fms/f,  %.2ff/s", msPerFrame, fps);
+                        Win32LogDebug("%.2fms/f,  %.2ff/s", msPerFrame, fps);
 #if 0
                         u64 endCycleCount = __rdtsc();
                         
@@ -1363,7 +1434,7 @@ WinMain(HINSTANCE instance,
                         f32 fps = (f32)perfCountFrequency / (f32)counterElapsed;
                         f32 mcpf = (f32)cyclesElapsed / 1000000.0f;
                         
-                        LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
+                        Win32LogDebug("%.2fms/f,  %.2f/s,  %.2fmc/f", msPerFrame, fps, mcpf);
                         
                         lastCycleCount = endCycleCount;
 #endif

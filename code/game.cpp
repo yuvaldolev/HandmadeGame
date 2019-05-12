@@ -26,10 +26,8 @@ RenderGradient(GameOffscreenBuffer* buffer, s32 xOffset, s32 yOffset)
 }
 
 internal void
-GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
+GameOutputSound(GameState* gameState, GameSoundOutputBuffer* buffer, const s32 toneHz)
 {
-    local_persist f32 tSine;
-    
     const s16 TONE_VOLUME = 10000;
     const s32 WAVE_PERIOD = buffer->samplesPerSecond / toneHz;
     
@@ -39,18 +37,21 @@ GameOutputSound(GameSoundOutputBuffer* buffer, const s32 toneHz)
          sampleIndex < buffer->sampleCount;
          ++sampleIndex)
     {
-        f32 sineValue = sinf(tSine);
+        f32 sineValue = sinf(gameState->tSine);
         s16 sampleValue = (s16)(sineValue * TONE_VOLUME);
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         
-        tSine += 2.0f * Pi32 * (1.0f / (f32)WAVE_PERIOD);
+        gameState->tSine += 2.0f * Pi32 * (1.0f / (f32)WAVE_PERIOD);
+        
+        if (gameState->tSine > 2.0f * Pi32)
+        {
+            gameState->tSine -= 2.0f * Pi32;
+        }
     }
 }
 
-void
-GameUpdateAndRender(GameMemory* memory, GameInput* input,
-                    GameOffscreenBuffer* offscreenBuffer)
+extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     Assert((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) ==
            ArrayCount(input->controllers[0].buttons));
@@ -58,6 +59,10 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
     Assert(sizeof(GameMemory) <= memory->permanentStorageSize);
     
     GameState* gameState = (GameState*)memory->permanentStorage;
+    
+    // TODO(yuval & eran): This is temporary
+    globalLogMemory = memory;
+    globalLogFormatMemory = memory;
     
     if (!memory->isInitialized)
     {
@@ -69,6 +74,8 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
         
         gameState->blueOffset = 0;
         gameState->greenOffset = 0;
+        
+        gameState->tSine = 0.0f;
         
         memory->isInitialized = true;
     }
@@ -122,9 +129,8 @@ GameUpdateAndRender(GameMemory* memory, GameInput* input,
                    gameState->greenOffset);
 }
 
-void
-GameGetSoundSamples(GameMemory* memory, GameSoundOutputBuffer* soundBuffer)
+extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
 {
     GameState* gameState = (GameState*)memory->permanentStorage;
-    GameOutputSound(soundBuffer, gameState->toneHz);
+    GameOutputSound(gameState, soundBuffer, gameState->toneHz);
 }

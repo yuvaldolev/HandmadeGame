@@ -1,5 +1,15 @@
 #if !defined(WIN32_GAME_H)
 
+struct Win32GameCode
+{
+    HMODULE gameCodeDLL;
+    GameUpdateAndRenderType* UpdateAndRender;
+    GameGetSoundSamplesType* GetSoundSamples;
+    LogType* Log;
+    
+    b32 isValid;
+};
+
 struct Win32Backbuffer
 {
     BITMAPINFO info;

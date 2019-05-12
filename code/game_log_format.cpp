@@ -11,6 +11,7 @@ struct LogFormatter
     LogFormatter* next;
 };
 
+global_variable GameMemory* globalLogFormatMemory;
 global_variable MemoryArena* globalArena = 0;
 global_variable LogFormatter* globalFirstFormatter;
 
@@ -71,7 +72,7 @@ LOG_FORMAT_FN(LogFormatNewLine)
 internal
 LOG_FORMAT_FN(LogFormatDate)
 {
-    PlatformDateTime dateTime = PlatformGetDateTime();
+    PlatformDateTime dateTime = globalLogFormatMemory->PlatformGetDateTime();
     umm bytesWritten = FormatString(msg->formattedAt, msg->remainingFormattingSpace,
                                     "%02u/%02u/%04u %02u:%02u:%02u:%03u",
                                     dateTime.day, dateTime.month, dateTime.year,
@@ -370,7 +371,6 @@ LogFormatSetPattern(MemoryArena* arena, const char* fmt)
     if (fmt)
     {
         // TODO(yuval & eran): Call LogFormatClean()
-        
         globalArena = arena;
         globalFirstFormatter = LogFormatGetNextFormatter(&fmt);
         
