@@ -24,6 +24,17 @@
 // where the array was defined!
 #define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
 
+// NOTE(yuval): Array Foreach
+#define ArrayForeach(var, array) \
+for (s32 arrayIndex = 0; arrayIndex < ArrayCount(array); ++arrayIndex) \
+for (b32 b = true; b; b = false) \
+for (var = (array)[arrayIndex]; b; b = false)
+
+#define ArrayForeachRef(var, array) \
+for (s32 arrayIndex = 0; arrayIndex < ArrayCount(array); ++arrayIndex) \
+for (b32 b = true; b; b = false) \
+for (var = &(array)[arrayIndex]; b; b = false)
+
 typedef int8_t s8;
 typedef int16_t s16;
 typedef int32_t s32;
