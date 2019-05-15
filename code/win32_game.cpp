@@ -855,13 +855,33 @@ Win32UnloadGameCode(Win32GameCode* gameCode)
     gameCode->Log = LogStub;
 }
 
+inline FILETIME
+Win32GetLastWriteTime(const char* fileName)
+{
+    FILETIME lastWriteTime = { };
+    
+    WIN32_FIND_DATAA findData;
+    HANDLE findHandle = FindFirstFileA(fileName, &findData);
+    
+    if (findHandle != INVALID_HANDLE_VALUE)
+    {
+        lastWriteTime = findData.ftLastWriteTime;
+        FindClose(findHandle);
+    }
+    
+    return lastWriteTime;
+}
+
 internal Win32GameCode
-Win32LoadGameCode()
+Win32LoadGameCode(const char* sourceGameCodeDLLFullPath,
+                  const char* tempGameCodeDLLFullPath)
 {
     Win32GameCode result = { };
     
-    CopyFileA("game.dll", "game_temp.dll", FALSE);
-    result.gameCodeDLL = LoadLibrary("game_temp.dll");
+    result.DLLLastWriteTime = Win32GetLastWriteTime(sourceGameCodeDLLFullPath);
+    
+    CopyFileA(sourceGameCodeDLLFullPath, tempGameCodeDLLFullPath, FALSE);
+    result.gameCodeDLL = LoadLibrary(tempGameCodeDLLFullPath);
     
     if (result.gameCodeDLL)
     {
@@ -887,12 +907,61 @@ Win32LoadGameCode()
     return result;
 }
 
+void
+CatStrings(char* dest, memory_index destCount,
+           const char* sourceA, memory_index sourceACount,
+           const char* sourceB, memory_index sourceBCount)
+{
+    Assert(destCount > sourceACount + sourceBCount);
+    char* destAt = dest;
+    
+    // TODO(yuval & eran): @Copy-and-paste
+    // TODO(yuval & eran): @Incomplete use String struct
+    for (s32 index = 0; index < sourceACount; ++index)
+    {
+        *destAt++ = sourceA[index];
+    }
+    
+    for (s32 index = 0; index < sourceBCount; ++index)
+    {
+        *destAt++ = sourceB[index];
+    }
+    
+    *destAt = 0;
+}
+
 s32 WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE prevInstance,
         LPSTR commandLine,
         s32 showCode)
 {
+    char exeFileName[MAX_PATH];
+    DWORD sizeOfFileName = GetModuleFileNameA(0, exeFileName, sizeof(exeFileName));
+    
+    char* onePastBackslash = exeFileName + sizeOfFileName;
+    
+    for (char* scan = exeFileName; *scan; ++scan)
+    {
+        if (*scan == '\\' || *scan == '/')
+        {
+            onePastBackslash = scan + 1;
+        }
+    }
+    
+    // TODO(yuval): @Check-out sizeof
+    const char* sourceGameCodeDLLFileName = "game.dll";
+    char sourceGameCodeDLLFullPath[MAX_PATH];
+    CatStrings(sourceGameCodeDLLFullPath, sizeof(sourceGameCodeDLLFullPath),
+               exeFileName, onePastBackslash - exeFileName,
+               sourceGameCodeDLLFileName, StringLength(sourceGameCodeDLLFileName));
+    
+    const char* tempGameCodeDLLFileName = "game_temp.dll";
+    char tempGameCodeDLLFullPath[MAX_PATH];
+    CatStrings(tempGameCodeDLLFullPath, sizeof(tempGameCodeDLLFullPath),
+               exeFileName, onePastBackslash - exeFileName,
+               tempGameCodeDLLFileName, StringLength(tempGameCodeDLLFileName));
+    
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);
     globalPerfCountFrequency = perfCountFrequencyResult.QuadPart;
@@ -1011,8 +1080,8 @@ WinMain(HINSTANCE instance,
                 DEBUGWin32TimeMarker DEBUGTimeMarkers[gameUpdateHz / 2] = { };
                 u32 DEBUGTimeMarkerIndex = 0;
                 
-                Win32GameCode game = Win32LoadGameCode();
-                u32 loadCounter = 0;
+                Win32GameCode game = Win32LoadGameCode(sourceGameCodeDLLFullPath,
+                                                       tempGameCodeDLLFullPath);
                 
                 LARGE_INTEGER lastCounter = Win32GetWallClock();
                 LARGE_INTEGER flipWallClock = Win32GetWallClock();
@@ -1020,11 +1089,13 @@ WinMain(HINSTANCE instance,
                 
                 while (globalRunning)
                 {
-                    if (loadCounter++ > 120)
+                    FILETIME newDLLWriteTime = Win32GetLastWriteTime(sourceGameCodeDLLFullPath);
+                    
+                    if (CompareFileTime(&newDLLWriteTime, &game.DLLLastWriteTime))
                     {
                         Win32UnloadGameCode(&game);
-                        game = Win32LoadGameCode();
-                        loadCounter = 0;
+                        game = Win32LoadGameCode(sourceGameCodeDLLFullPath,
+                                                 tempGameCodeDLLFullPath);
                     }
                     
                     GameController* oldKeyboardController = &oldInput->controllers[0];
@@ -1214,6 +1285,7 @@ WinMain(HINSTANCE instance,
                         offscreenBuffer.width = globalBackbuffer.width;
                         offscreenBuffer.height = globalBackbuffer.height;
                         offscreenBuffer.pitch = globalBackbuffer.pitch;
+                        offscreenBuffer.bytesPerPixel = globalBackbuffer.bytesPerPixel;
                         
                         game.UpdateAndRender(&gameMemory, newInput, &offscreenBuffer);
                         

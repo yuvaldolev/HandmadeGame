@@ -3,6 +3,8 @@
 struct Win32GameCode
 {
     HMODULE gameCodeDLL;
+    FILETIME DLLLastWriteTime;
+    
     GameUpdateAndRenderType* UpdateAndRender;
     GameGetSoundSamplesType* GetSoundSamples;
     LogType* Log;
