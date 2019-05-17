@@ -144,6 +144,29 @@ WrapZ(char* z)
     return str;
 }
 
+void
+CatStrings(char* dest, memory_index destCount,
+           const char* sourceA, memory_index sourceACount,
+           const char* sourceB, memory_index sourceBCount)
+{
+    Assert(destCount > sourceACount + sourceBCount);
+    char* destAt = dest;
+    
+    // TODO(yuval & eran): @Copy-and-paste
+    // TODO(yuval & eran): @Incomplete use String struct
+    for (s32 index = 0; index < sourceACount; ++index)
+    {
+        *destAt++ = sourceA[index];
+    }
+    
+    for (s32 index = 0; index < sourceBCount; ++index)
+    {
+        *destAt++ = sourceB[index];
+    }
+    
+    *destAt = 0;
+}
+
 internal char
 ToLowercase(char value)
 {

@@ -39,6 +39,18 @@ struct Win32SoundOutput
     // TODO(yuval & eran): Math gets simples if we add a bytesPerSeocond field
 };
 
+struct Win32State
+{
+    u64 totalSize;
+    void* gameMemoryBlock;
+    
+    HANDLE recordingHandle;
+    s32 inputRecordingIndex;
+    
+    HANDLE playingHandle;
+    s32 inputPlayingIndex;
+};
+
 struct DEBUGWin32TimeMarker
 {
     DWORD outputPlayCursor;

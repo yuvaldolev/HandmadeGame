@@ -138,37 +138,37 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 
                 if (controller->moveUp.endedDown)
                 {
-                    gameState->playerY -= 5;
+                    gameState->playerY -= 8;
                 }
                 
                 if (controller->moveDown.endedDown)
                 {
-                    gameState->playerY += 5;
+                    gameState->playerY += 8;
                 }
                 
                 if (controller->moveRight.endedDown)
                 {
-                    gameState->playerX += 5;
+                    gameState->playerX += 8;
                 }
                 
                 if (controller->moveLeft.endedDown)
                 {
-                    gameState->playerX -= 5;
+                    gameState->playerX -= 8;
                 }
             }
             
             if (controller->actionUp.endedDown)
             {
-                gameState->tJump = 1.0f;
+                gameState->tJump = 2.0f * Pi32;
             }
         }
     }
     
-    gameState->tJump -= 0.033f;
+    gameState->tJump -= 0.3f;
     
     if (gameState->tJump > 0.0f)
     {
-        gameState->playerY -= (s32)(10.0f * sinf(gameState->tJump));
+        gameState->playerY += (s32)(35.0f * sinf(gameState->tJump));
     }
     
     RenderGradient(offscreenBuffer, gameState->blueOffset,
