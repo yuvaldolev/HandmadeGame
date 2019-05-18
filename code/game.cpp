@@ -112,6 +112,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         gameState->tSine = 0.0f;
         
         memory->isInitialized = true;
+        
+        LogDebug("Memory Is Initialized!");
     }
     
     gameState->toneHz = 256;

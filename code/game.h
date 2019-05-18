@@ -18,6 +18,11 @@ GAME_INTERNAL:
 ////////////////////////////////////
 //          Platform API          //
 ////////////////////////////////////
+struct ThreadContext
+{
+    s32 placeHolder;
+};
+
 // NOTE(yuval): Services that the platform provides to the game
 struct PlatformDateTime
 {
@@ -50,13 +55,15 @@ struct DEBUGReadFileResult
     u32 contentsSize;
 };
 
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void* memory)
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(ThreadContext* thread, void* memory)
 typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemoryType);
 
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(const char* filename)
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(ThreadContext* thread, \
+const char* fileName)
 typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFileType);
 
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(const char* filename, \
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(ThreadContext* thread, \
+const char* fileName, \
 void* memory, u32 memorySize)
 typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
 
@@ -123,6 +130,9 @@ struct GameController
 
 struct GameInput
 {
+    GameButtonState mouseButtons[5];
+    s32 mouseX, mouseY, mouseZ;
+    
     GameController controllers[5];
 };
 
@@ -153,19 +163,14 @@ struct GameMemory
    3. Bitmap buffer to use
    4. Sound buffer to use
 */
-#define GAME_UPDATE_AND_RENDER(name) void name(GameMemory* memory, GameInput* input, \
+#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* thread, GameMemory* memory, \
+GameInput* input, \
 GameOffscreenBuffer* offscreenBuffer)
 typedef GAME_UPDATE_AND_RENDER(GameUpdateAndRenderType);
-GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
-{
-}
 
-#define GAME_GET_SOUND_SAMPLES(name) void name(GameMemory* memory, \
+#define GAME_GET_SOUND_SAMPLES(name) void name(ThreadContext* thread, GameMemory* memory, \
 GameSoundOutputBuffer* soundBuffer)
 typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
-GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesStub)
-{
-}
 
 
 /////////////////////////////
