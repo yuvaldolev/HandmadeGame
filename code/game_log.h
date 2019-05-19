@@ -16,7 +16,7 @@ struct LogMsg
     const char* fn;
     long line;
     const char* format;
-    va_list argList;
+    va_list* argList;
     char* formatted;
     char* formattedAt;
     umm remainingFormattingSpace;

@@ -1,6 +1,7 @@
 #if !defined(GAMETYPES_H)
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define internal static
 #define global_variable static
@@ -73,7 +74,7 @@ inline u32
 StringLength(const char* string)
 {
     u32 count = 0;
-    
+
     if (string)
     {
         while(*string++)
@@ -81,9 +82,10 @@ StringLength(const char* string)
             ++count;
         }
     }
-    
+
     return count;
 }
 
 #define GAMETYPES_H
 #endif
+
