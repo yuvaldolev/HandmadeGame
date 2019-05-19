@@ -39,6 +39,24 @@ struct Win32SoundOutput
     // TODO(yuval & eran): Math gets simples if we add a bytesPerSeocond field
 };
 
+// TODO(yuval & eran): Move this
+#define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
+
+struct Win32State
+{
+    u64 totalSize;
+    void* gameMemoryBlock;
+    
+    HANDLE recordingHandle;
+    s32 inputRecordingIndex;
+    
+    HANDLE playingHandle;
+    s32 inputPlayingIndex;
+    
+    char exeFileName[WIN32_STATE_FILE_NAME_COUNT];
+    char* onePastLastEXEFileNameSlash;
+};
+
 struct DEBUGWin32TimeMarker
 {
     DWORD outputPlayCursor;
