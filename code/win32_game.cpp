@@ -1099,7 +1099,9 @@ WinMain(HINSTANCE instance,
     
     Win32LoadXInput();
     
-    Win32ResizeDIBSection(&globalBackbuffer, 1280, 720);
+    s32 renderWidth = 960;
+    s32 renderHeight = 540;
+    Win32ResizeDIBSection(&globalBackbuffer, renderWidth, renderHeight);
     
     WNDCLASS windowClass = { };
     
@@ -1118,8 +1120,8 @@ WinMain(HINSTANCE instance,
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
+            renderWidth,
+            renderHeight,
             0,
             0,
             instance,
@@ -1302,6 +1304,8 @@ WinMain(HINSTANCE instance,
                     
                     if (!globalPause)
                     {
+                        newInput->secondsToAdvanceOverUpdate = targetSecondsPerFrame;
+                        
                         POINT mouseP;
                         GetCursorPos(&mouseP);
                         ScreenToClient(window, &mouseP);
