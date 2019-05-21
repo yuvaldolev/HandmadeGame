@@ -42,15 +42,25 @@ struct Win32SoundOutput
 // TODO(yuval & eran): Move this
 #define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
 
+struct Win32ReplayBuffer
+{
+    HANDLE fileHandle;
+    HANDLE memoryMap;
+    char replayFileName[WIN32_STATE_FILE_NAME_COUNT];
+    void* memoryBlock;
+};
+
 struct Win32State
 {
     u64 totalSize;
     void* gameMemoryBlock;
     
+    Win32ReplayBuffer replayBuffers[4];
+    
     HANDLE recordingHandle;
     s32 inputRecordingIndex;
     
-    HANDLE playingHandle;
+    HANDLE playBackHandle;
     s32 inputPlayingIndex;
     
     char exeFileName[WIN32_STATE_FILE_NAME_COUNT];
