@@ -1,30 +1,19 @@
-#include "GameLogFormat.cpp"
+#include "game_log_format.cpp"
 
-#include <stdio.h>
-
-global_variable LogLevelEnum GlobalMinLevel;
+global_variable LogLevelEnum globalMinLevel;
+global_variable GameMemory* globalLogMemory;
 
 void
-LogInit(LogLevelEnum minLevel, const char* logFmt)
+LogInit(MemoryArena* arena,
+        LogLevelEnum minLevel, const char* logFmt)
 {
-    GlobalMinLevel = minLevel;
-    LogFormatSetPattern(logFmt);
+    globalMinLevel = minLevel;
+    LogFormatSetPattern(arena, logFmt);
 }
 
-void
-LogFini()
+extern "C" LOG(Log)
 {
-    LogFormatClean();
-}
-
-void
-Log(LogLevelEnum level,
-    const char* logFileName,
-    const char* logFnName,
-    long logLine,
-    const char* format, ...)
-{
-    if (level >= GlobalMinLevel)
+    if (level >= globalMinLevel)
     {
         // NOTE(yuval): VA LIST extraction
         va_list argList;
@@ -40,7 +29,7 @@ Log(LogLevelEnum level,
         msg.fn = logFnName;
         msg.line = logLine;
         msg.format = format;
-        msg.argList = argList;
+        msg.argList = &argList;
         msg.formatted = formatted;
         msg.formattedAt = formatted;
         msg.remainingFormattingSpace = FORMATTED_SIZE;
@@ -50,7 +39,7 @@ Log(LogLevelEnum level,
         LogFormatMessage(&msg);
 
         // NOTE(yuval): Log Message In Color
-        PlatformWriteLogMsgInColor(&msg);
+        globalLogMemory->PlatformWriteLogMsg(&msg);
 
         // NOTE(yuval): End VA LIST
         va_end(argList);

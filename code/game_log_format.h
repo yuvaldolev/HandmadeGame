@@ -1,7 +1,7 @@
 #if !defined(GAMELOGFORMAT_H)
 
 void
-LogFormatSetPattern(const char* fmt);
+LogFormatSetPattern(MemoryArena* arena, const char* fmt);
 
 void
 LogFormatClean();

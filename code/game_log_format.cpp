@@ -1,19 +1,35 @@
-#define LOG_FORMAT_FN(name) void name(LogMsg* msg, struct LogFormat* format)
+#include <stdlib.h> // TODO(yuval & eran): Remove this
+
+#define LOG_FORMAT_FN(name) void name(LogMsg* msg, struct LogFormatter* formatter)
 typedef LOG_FORMAT_FN(LogFormatFnType);
 
-struct LogFormat
+struct LogFormatter
 {
     LogFormatFnType* fn;
-    char* chars;
+    String chars;
+
+    LogFormatter* next;
 };
 
-struct LogFormats
+global_variable GameMemory* globalLogFormatMemory;
+global_variable MemoryArena* globalArena = 0;
+global_variable LogFormatter* globalFirstFormatter;
+
+internal void
+LogFormatWriteString(LogMsg* msg, String value)
 {
-    LogFormat** formats;
-    umm size;
-};
+    FormatDest dest = { msg->formattedAt, msg->remainingFormattingSpace };
+    OutString(&dest, value);
 
-global_variable LogFormats globalFormats = { };
+    // TODO(yuval & eran): Refactor this into a function
+    msg->formattedAt = dest.at;
+    msg->remainingFormattingSpace = dest.size;
+
+    if (msg->remainingFormattingSpace)
+    {
+        *msg->formattedAt = '\0';
+    }
+}
 
 internal void
 LogFormatWriteChars(LogMsg* msg, const char* value)
@@ -35,7 +51,7 @@ LOG_FORMAT_FN(LogFormatUserMessage)
 {
     umm bytesWritten = FormatStringList(msg->formattedAt,
                                         msg->remainingFormattingSpace,
-                                        msg->format, msg->argList);
+                                        msg->format, *msg->argList);
 
     msg->remainingFormattingSpace -= bytesWritten;
     msg->formattedAt += bytesWritten;
@@ -56,7 +72,7 @@ LOG_FORMAT_FN(LogFormatNewLine)
 internal
 LOG_FORMAT_FN(LogFormatDate)
 {
-    PlatformDateTime dateTime = PlatformGetDateTime();
+    PlatformDateTime dateTime = globalLogFormatMemory->PlatformGetDateTime();
     umm bytesWritten = FormatString(msg->formattedAt, msg->remainingFormattingSpace,
                                     "%02u/%02u/%04u %02u:%02u:%02u:%03u",
                                     dateTime.day, dateTime.month, dateTime.year,
@@ -187,48 +203,21 @@ LOG_FORMAT_FN(LogFormatPercent)
 internal
 LOG_FORMAT_FN(LogFormatChars)
 {
-    LogFormatWriteChars(msg, format->chars);
+    LogFormatWriteString(msg, formatter->chars);
 }
 
-internal void*
-LogFormatReallocateMemory(void* memory, umm newBlockCount,
-                          umm prevBlockCount, umm blockSize)
+internal LogFormatter*
+LogFormatAppendFormatter(LogFormatter* formatter, LogFormatter* next)
 {
-    // TODO(yuval & eran): Temporary! Replace dynamic memory allocation
-    // with memory arena
-    memory_index newMemorySize = blockSize * newBlockCount;
-    s8* newMemory = (s8*)malloc(newMemorySize);
-    ZeroSize(newMemory, newMemorySize);
+    LogFormatter* result = 0;
 
-    if (memory)
+    if (formatter)
     {
-        Copy(memory, newMemory, blockSize * prevBlockCount);
-        free(memory);
+        formatter->next = next;
+        result = next;
     }
 
-    return newMemory;
-}
-
-internal void
-LogFormatAppendFormat(LogFormats* formats, LogFormat* format,
-                      int* index)
-{
-    const int CHUNK_SIZE = 5;
-
-    umm* size = &formats->size;
-
-    if (*index >= *size)
-    {
-        formats->formats = (LogFormat**)
-            LogFormatReallocateMemory(formats->formats,
-                                      *size + CHUNK_SIZE,
-                                      *size,
-                                      sizeof(LogFormat*));
-        *size += CHUNK_SIZE;
-    }
-
-    formats->formats[*index] = format;
-    ++(*index);
+    return result;
 }
 
 
@@ -239,37 +228,30 @@ LogFormatAdvanceChars(const char** fmt, u32 amount)
     return **fmt;
 }
 
-internal char*
+internal String
 LogFormatGetNextChars(const char** fmt)
 {
-    const u32 CHUNK_SIZE = 10;
-
-    char* result = 0;
-    umm resultLen = 0;
-    memory_index resultIndex = 0;
+    String result =  { };
 
     if (fmt && *fmt)
     {
         char currChar = **fmt;
+        b32 dataInitialized = false;
 
         while (currChar && currChar != '%')
         {
-            if (!resultIndex || resultIndex >= resultLen - 1)
-            {
-                if (resultIndex)
-                {
-                    result[resultIndex++] = '\0';
-                }
+            char* memory = (char*)PushSize(globalArena, sizeof(char));
+            *memory = currChar;
 
-                result = (char*)
-                    LogFormatReallocateMemory(result,
-                                              resultLen + CHUNK_SIZE,
-                                              resultLen,
-                                              sizeof(char));
-                resultLen += CHUNK_SIZE;
+            if (!dataInitialized)
+            {
+                result.data = memory;
+                dataInitialized = true;
             }
 
-            result[resultIndex++] = currChar;
+            ++result.count;
+            result.memorySize += sizeof(char);
+
             currChar = LogFormatAdvanceChars(fmt, 1);
         }
     }
@@ -344,10 +326,10 @@ LogFormatGetFormatFn(const char tokenSpecifier)
     return formatFn;
 }
 
-internal LogFormat*
-LogFormatGetNextFormat(const char** fmt)
+internal LogFormatter*
+LogFormatGetNextFormatter(const char** fmt)
 {
-    LogFormat* format = 0;
+    LogFormatter* formatter = 0;
 
     if (fmt && *fmt)
     {
@@ -356,7 +338,7 @@ LogFormatGetNextFormat(const char** fmt)
         if (formatSpecifier)
         {
             LogFormatFnType* formatFn = 0;
-            char* formatChars = 0;
+            String formatterChars = { };
 
             if (formatSpecifier == '%')
             {
@@ -367,36 +349,37 @@ LogFormatGetNextFormat(const char** fmt)
             else
             {
                 formatFn = LogFormatChars;
-                formatChars = LogFormatGetNextChars(fmt);
+                formatterChars = LogFormatGetNextChars(fmt);
             }
 
             if (formatFn)
             {
-                format = (LogFormat*)malloc(sizeof(LogFormat));
-                ZeroSize(format, sizeof(LogFormat));
-                format->fn = formatFn;
-                format->chars = formatChars;
+                formatter = PushStruct(globalArena, LogFormatter);
+                // ZeroSize(format, sizeof(LogFormat)); TODO(yuval & eran): Use this
+                formatter->fn = formatFn;
+                formatter->chars = formatterChars;
             }
         }
     }
 
-    return format;
+    return formatter;
 }
 
 void
-LogFormatSetPattern(const char* fmt)
+LogFormatSetPattern(MemoryArena* arena, const char* fmt)
 {
     if (fmt)
     {
-        LogFormatClean();
+        // TODO(yuval & eran): Call LogFormatClean()
+        globalArena = arena;
+        globalFirstFormatter = LogFormatGetNextFormatter(&fmt);
 
-        int currFormatIndex = 0;
-        LogFormat* format = LogFormatGetNextFormat(&fmt);
+        LogFormatter* currFormatter = globalFirstFormatter;
 
-        while (format)
+        while (currFormatter)
         {
-            LogFormatAppendFormat(&globalFormats, format, &currFormatIndex);
-            format = LogFormatGetNextFormat(&fmt);
+            currFormatter = LogFormatAppendFormatter(currFormatter,
+                                                     LogFormatGetNextFormatter(&fmt));
         }
     }
 }
@@ -404,46 +387,18 @@ LogFormatSetPattern(const char* fmt)
 void
 LogFormatClean()
 {
-    LogFormat** formatsAt = globalFormats.formats;
-
-    if (formatsAt)
-    {
-        umm size = globalFormats.size;
-
-        while (*formatsAt && size--)
-        {
-            LogFormat* format = *formatsAt;
-
-            // NOTE(yuval): Delete the format's chars
-            free(format->chars); // TODO(yuval & eran): Temporary
-            format->chars = 0;
-
-            // NOTE(yuval): Delete the format
-            free(format);
-            *formatsAt = 0;
-
-            ++formatsAt;
-        }
-
-        // NOTE(yuval): Delete the formats array
-        free(globalFormats.formats);
-        globalFormats.formats = 0;
-
-        // NOTE(yuval): Zero the size
-        globalFormats.size = 0;
-    }
+    // TODO(yuval & eran): Implement this
 }
 
 void
 LogFormatMessage(LogMsg* msg)
 {
-    LogFormat** formatsAt = globalFormats.formats;
-    umm size = globalFormats.size;
+    LogFormatter* formatterAt = globalFirstFormatter;
 
-    while (*formatsAt && size-- && msg->remainingFormattingSpace)
+    while (formatterAt && msg->remainingFormattingSpace)
     {
-        (*formatsAt)->fn(msg, *formatsAt);
-        ++formatsAt;
+        formatterAt->fn(msg, formatterAt);
+        formatterAt = formatterAt->next;
     }
 }
 
