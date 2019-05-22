@@ -232,7 +232,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerTop = gameState->playerY - playerHeight;
     
     DrawRectangle(
-        offscreenBuffer, playerLeft, playerTop,
+        offscreenBuffer,
+        playerLeft, playerTop,
         playerLeft + playerWidth, playerTop + playerHeight,
         playerR, playerG, playerB);
 }
