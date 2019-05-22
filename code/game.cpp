@@ -201,9 +201,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     u32 upperLeftX = 0;
     u32 upperLeftY = 0;
     
-    for (int row = 0; row < 9; ++row)
+    for (s32 row = 0; row < 9; ++row)
     {
-        for (int column = 0; column < 17; ++column)
+        for (s32 column = 0; column < 17; ++column)
         {
             u32 tileID = tileMap[row][column];
             f32 tileColor = 0.5f;
@@ -231,9 +231,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerLeft = gameState->playerX - (playerWidth * 0.5f);
     f32 playerTop = gameState->playerY - playerHeight;
     
-    DrawRectangle(offscreenBuffer, playerLeft, playerTop,
-                  playerWidth + playerLeft, playerHeight + playerTop,
-                  playerR, playerG, playerB);
+    DrawRectangle(
+        offscreenBuffer, playerLeft, playerTop,
+        playerLeft + playerWidth, playerTop + playerHeight,
+        playerR, playerG, playerB);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
