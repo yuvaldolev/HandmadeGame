@@ -127,6 +127,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
         
+        gameState->playerX = 10.0f;
+        gameState->playerY = 10.0f;
+        
         memory->isInitialized = true;
     }
     
@@ -148,14 +151,89 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
             else
             {
+                // NOTE (eran): delta coordinates are pixels per second and not pixels
+                f32 dPlayerX = 0.0f;
+                f32 dPlayerY = 0.0f;
+                
+                if (controller->moveUp.endedDown)
+                {
+                    dPlayerY = -1.0f;
+                }
+                
+                if (controller->moveDown.endedDown)
+                {
+                    dPlayerY = 1.0f;
+                }
+                
+                if (controller->moveLeft.endedDown)
+                {
+                    dPlayerX = -1.0f;
+                }
+                
+                if (controller->moveRight.endedDown)
+                {
+                    dPlayerX = 1.0f;
+                }
+                
+                dPlayerX *= 128.0f;
+                dPlayerY *= 128.0f;
+                
+                gameState->playerX += (dPlayerX * input->dTimePerFrame);
+                gameState->playerY +=  (dPlayerY * input->dTimePerFrame);
             }
         }
     }
     
-    DrawRectangle(offscreenBuffer, 0.0f, 0.0f, (f32)offscreenBuffer->width,
-                  (f32)offscreenBuffer->height, 1.0f, 0.0f, 1.0f);
+    u32 tileMap[9][17] = {
+        {0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 1, 1, 1, 1},
+        {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1, 0},
+        {0, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0},
+        {0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0},
+        {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0},
+        {0, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0, 0},
+        {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0},
+        {0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0, 0},
+        {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0}
+    };
     
-    DrawRectangle(offscreenBuffer, 10.0f, 10.0f, 30.0f, 30.0f, 1.0f, 1.0f, 1.0f);
+    u32 tileWidth = 69;
+    u32 tileHeight = 69;
+    u32 upperLeftX = 0;
+    u32 upperLeftY = 0;
+    
+    for (int row = 0; row < 9; ++row)
+    {
+        for (int column = 0; column < 17; ++column)
+        {
+            u32 tileID = tileMap[row][column];
+            f32 tileColor = 0.5f;
+            
+            if (tileID == 1)
+            {
+                tileColor = 1.0f;
+            }
+            
+            f32 minX = (upperLeftX + (f32)(column * tileWidth));
+            f32 minY = (upperLeftY + (f32)(row * tileHeight));
+            f32 maxX = (f32)(minX + tileWidth);
+            f32 maxY = (f32)(minY + tileHeight);
+            
+            DrawRectangle(offscreenBuffer, minX, minY, maxX, maxY, tileColor, tileColor, tileColor);
+        }
+    }
+    
+    f32 playerR = 1.0f;
+    f32 playerG = 0.0f;
+    f32 playerB = 1.0f;
+    
+    f32 playerWidth = tileWidth * 0.75f;
+    f32 playerHeight = (f32)tileHeight;
+    f32 playerLeft = gameState->playerX - (playerWidth * 0.5f);
+    f32 playerTop = gameState->playerY - playerHeight;
+    
+    DrawRectangle(offscreenBuffer, playerLeft, playerTop,
+                  playerWidth + playerLeft, playerHeight + playerTop,
+                  playerR, playerG, playerB);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)

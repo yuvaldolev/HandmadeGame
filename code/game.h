@@ -130,7 +130,7 @@ struct GameController
 
 struct GameInput
 {
-    f32 secondsToAdvanceOverUpdate;
+    f32 dTimePerFrame;
     
     GameButtonState mouseButtons[5];
     s32 mouseX, mouseY, mouseZ;
@@ -180,6 +180,8 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 /////////////////////////////
 struct GameState
 {
+    f32 playerX;
+    f32 playerY;
 };
 
 #define GAME_H
