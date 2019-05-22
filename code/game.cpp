@@ -151,7 +151,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
             else
             {
-                // NOTE (eran): Delta coordinates are pixels per second and not pixels
+                // NOTE(Eran): Delta coordinates are pixels per second and not pixels
                 f32 dPlayerX = 0.0f;
                 f32 dPlayerY = 0.0f;
                 
