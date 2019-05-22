@@ -27,8 +27,8 @@ pushd "../build"
 
 # Mac Build
 CommonFlags+=" -DGAME_MAC=1"
-MacFlags="-framework Cocoa"
+MacFlags="-framework Cocoa -framework OpenGL"
 $CXX $CommonFlags ../code/game.cpp -fPIC -shared -o game.dylib
-$CXX $CommonFlags ../code/mac_game.mm -o mac_game -ldl $MacFlags $PathFlags
+$CXX $CommonFlags -Wno-deprecated-declarations ../code/mac_game.mm -o mac_game -ldl $MacFlags $PathFlags
 popd
 

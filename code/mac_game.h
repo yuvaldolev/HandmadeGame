@@ -2,7 +2,8 @@
 
 struct MacOffscreenBuffer
 {
-    u8* memory;
+    u32 textureID;
+    void* memory;
     s32 width;
     s32 height;
     s32 pitch;
