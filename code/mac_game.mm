@@ -1,17 +1,22 @@
 #include <Cocoa/Cocoa.h>
 
+#include "game.h"
+
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 #include <OpenGL/glu.h>
 
-#include "game.h"
+#include <AudioToolbox/AudioToolbox.h>
+
+#include <mach/mach_time.h>
 
 #include "mac_game.h"
 
 global_variable b32 globalRunning;
 global_variable MacOffscreenBuffer globalBackbuffer;
 global_variable NSOpenGLContext* globalGLContext;
+global_variable mach_timebase_info_data_t globalTimebaseInfo;
 
 @interface MacAppDelegate : NSObject<NSApplicationDelegate, NSWindowDelegate>
 @end
@@ -73,6 +78,111 @@ RenderGradient(MacOffscreenBuffer* buffer, s32 blueOffset, s32 greenOffset)
         
         row += buffer->pitch;
     }
+}
+
+internal f32
+MacGetSecondsElapsed(u64 start, u64 end)
+{
+    // NOTE(yuval): Elapsed nanoseconds calculation
+    f32 result = ((f32)(end - start) *
+                  ((f32)globalTimebaseInfo.numer) /
+                  ((f32)globalTimebaseInfo.denom));
+    
+    // NOTE(yuval): Conversion to seconds
+    result *= 1.0E-9;
+    
+    return result;
+}
+
+OSStatus
+MacAudioUnitCallback(void* inRefCon,
+                     AudioUnitRenderActionFlags* ioActionFlags,
+                     const AudioTimeStamp* inTimeStamp,
+                     UInt32 inBusNumber,
+                     UInt32 inNumberFrames,
+                     AudioBufferList* ioData)
+{
+    MacSoundOutput* soundOutput = (MacSoundOutput*)inRefCon;
+    
+    if (soundOutput->readCursor == soundOutput->writeCursor)
+    {
+        soundOutput->soundBuffer.sampleCount = 0;
+    }
+    
+    u32 sampleCount = inNumberFrames;
+    if (soundOutput->soundBuffer.sampleCount < sampleCount)
+    {
+        sampleCount = soundOutput->soundBuffer.sampleCount;
+    }
+    
+    s16* outputBufferL = (s16*)ioData->mBuffers[0].mData;
+    s16* outputBufferR = (s16*)ioData->mBuffers[1].mData;
+    
+    for (u32 sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
+    {
+        outputBufferL[sampleIndex] = *soundOutput->readCursor++;
+        outputBufferR[sampleIndex] = *soundOutput->readCursor++;
+        
+        if ((u8*)soundOutput->readCursor >=
+            (((u8*)soundOutput->coreAudioBuffer) + soundOutput->soundBufferSize))
+        {
+            soundOutput->readCursor = soundOutput->coreAudioBuffer;
+        }
+    }
+    
+    for (u32 sampleIndex = 0; sampleIndex < inNumberFrames; ++sampleIndex)
+    {
+        outputBufferL[sampleIndex] = 0;
+        outputBufferR[sampleIndex] = 0;
+    }
+    
+    return noErr;
+}
+
+internal void
+MacInitCoreAudio(MacSoundOutput* soundOutput)
+{
+    AudioComponentDescription componentDescription = { };
+    componentDescription.componentType = kAudioUnitType_Output;
+    componentDescription.componentSubType = kAudioUnitSubType_DefaultOutput;
+    componentDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
+    
+    AudioComponent outputComponent = AudioComponentFindNext(0, &componentDescription);
+    
+    AudioUnit audioUnit;
+    AudioComponentInstanceNew(outputComponent, &audioUnit);
+    AudioUnitInitialize(audioUnit);
+    
+    AudioStreamBasicDescription audioDescriptor;
+    audioDescriptor.mSampleRate = soundOutput->soundBuffer.samplesPerSecond;
+    audioDescriptor.mFormatID = kAudioFormatLinearPCM;
+    audioDescriptor.mFormatFlags = (kAudioFormatFlagIsSignedInteger |
+                                    kAudioFormatFlagIsNonInterleaved |
+                                    kAudioFormatFlagIsPacked);
+    audioDescriptor.mFramesPerPacket = 1;
+    audioDescriptor.mChannelsPerFrame = 2;
+    audioDescriptor.mBitsPerChannel = sizeof(s16) * 8;
+    audioDescriptor.mBytesPerFrame = sizeof(s16);
+    audioDescriptor.mBytesPerPacket = audioDescriptor.mFramesPerPacket *
+        audioDescriptor.mBytesPerFrame;
+    
+    AudioUnitSetProperty(audioUnit,
+                         kAudioUnitProperty_StreamFormat,
+                         kAudioUnitScope_Input,
+                         0, &audioDescriptor,
+                         sizeof(audioDescriptor));
+    
+    AURenderCallbackStruct renderCallback;
+    renderCallback.inputProc = MacAudioUnitCallback;
+    renderCallback.inputProcRefCon = soundOutput;
+    
+    AudioUnitSetProperty(audioUnit,
+                         kAudioUnitProperty_SetRenderCallback,
+                         kAudioUnitScope_Global,
+                         0, &renderCallback,
+                         sizeof(renderCallback));
+    
+    AudioOutputUnitStart(audioUnit);
 }
 
 internal void
@@ -146,6 +256,13 @@ int main(int argc, const char* argv[])
 {
     @autoreleasepool
     {
+        mach_timebase_info(&globalTimebaseInfo);
+        
+        s32 renderWidth = 1280;
+        s32 renderHeight = 720;
+        
+        MacResizeBackbuffer(&globalBackbuffer, renderWidth, renderHeight);
+        
         // NOTE(yuval): NSApplication Creation
         NSApplication* app = [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -157,9 +274,6 @@ int main(int argc, const char* argv[])
         [NSApp finishLaunching];
         
         // NOTE(yuval): NSWindow Creation
-        s32 renderWidth = 1280;
-        s32 renderHeight = 720;
-        
         NSRect screenRect = [[NSScreen mainScreen] frame];
         
         NSRect initialFrame = NSMakeRect((screenRect.size.width - renderWidth) * 0.5,
@@ -180,81 +294,124 @@ int main(int argc, const char* argv[])
         [window setTitle:@"Handmade Game"];
         [window makeKeyAndOrderFront:nil];
         
-        // NOTE(yuval): Game Setup
-        MacResizeBackbuffer(&globalBackbuffer, renderWidth, renderHeight);
+        // NOTE(yuval): Audio Setup
+        MacSoundOutput soundOutput = { };
         
-        // NOTE(yuval): OpenGL Cocoa Setup (VSYNC is used for now)
-        NSOpenGLPixelFormatAttribute openGLAttributes[] = {
-            NSOpenGLPFAAccelerated,
-            NSOpenGLPFADoubleBuffer, // Uses vsync
-            NSOpenGLPFADepthSize, 24,
-            0
-        };
+        soundOutput.soundBuffer.samplesPerSecond = 48000;
+        soundOutput.soundBufferSize = soundOutput.soundBuffer.samplesPerSecond *
+            sizeof(s16) * 2;
         
-        NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes:openGLAttributes];
-        globalGLContext = [[NSOpenGLContext alloc] initWithFormat:format shareContext:0];
-        [format release];
+        // TODO(yuval): @Incomplete error checking for mmap faliures is required
+        soundOutput.soundBuffer.samples = (s16*)mmap(0,
+                                                     soundOutput.soundBufferSize,
+                                                     PROT_READ | PROT_WRITE,
+                                                     MAP_PRIVATE | MAP_ANONYMOUS,
+                                                     -1, 0);
         
-        GLint swapInt = 1; // Uses vsync
-        [globalGLContext setValues:&swapInt forParameter:NSOpenGLCPSwapInterval];
+        soundOutput.coreAudioBuffer = (s16*)mmap(0,
+                                                 soundOutput.soundBufferSize,
+                                                 PROT_READ | PROT_WRITE,
+                                                 MAP_PRIVATE | MAP_ANONYMOUS,
+                                                 -1, 0);
         
-        [globalGLContext setView:[window contentView]];
-        [globalGLContext makeCurrentContext];
-        
-        // NOTE(yuval): OpenGL Non-Cocoa Setup
-        // TODO(yuval): @Add error checking for all OpenGL calls
-        glDisable(GL_DEPTH_TEST);
-        glLoadIdentity();
-        glViewport(0, 0, globalBackbuffer.width, globalBackbuffer.height);
-        
-        glGenTextures(1, &globalBackbuffer.textureID);
-        
-        glBindTexture(GL_TEXTURE_2D, globalBackbuffer.textureID);
-        
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                     globalBackbuffer.width,
-                     globalBackbuffer.height,
-                     0, GL_BGRA,
-                     GL_UNSIGNED_INT_8_8_8_8_REV,
-                     0);
-        
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-        
-        s32 xOffset = 0;
-        s32 yOffset = 0;
-        
-        // NOTE(yuval): Main Run Loop
-        globalRunning = true;
-        
-        while (globalRunning)
+        if (soundOutput.soundBuffer.samples != MAP_FAILED &&
+            soundOutput.coreAudioBuffer != MAP_FAILED)
         {
-            NSEvent* event;
+            ZeroSize(soundOutput.soundBuffer.samples, soundOutput.soundBufferSize);
+            ZeroSize(soundOutput.coreAudioBuffer, soundOutput.soundBufferSize);
             
-            do
-            {
-                event = [NSApp nextEventMatchingMask:NSEventMaskAny
-                        untilDate:nil
-                        inMode:NSDefaultRunLoopMode
-                        dequeue:YES];
-                
-                switch ([event type])
-                {
-                    default:
-                    {
-                        [NSApp sendEvent:event];
-                    } break;
-                }
-            } while (event != nil);
+            soundOutput.readCursor = soundOutput.coreAudioBuffer;
+            soundOutput.writeCursor = soundOutput.coreAudioBuffer;
             
+            MacInitCoreAudio(&soundOutput);
+            
+            // NOTE(yuval): OpenGL Cocoa Setup (VSYNC is used for now)
+            NSOpenGLPixelFormatAttribute openGLAttributes[] = {
+                NSOpenGLPFAAccelerated,
+                NSOpenGLPFADoubleBuffer, // Uses vsync
+                NSOpenGLPFADepthSize, 24,
+                0
+            };
+            
+            NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes:openGLAttributes];
+            globalGLContext = [[NSOpenGLContext alloc] initWithFormat:format shareContext:0];
+            [format release];
+            
+            GLint swapInt = 1; // Uses vsync
+            [globalGLContext setValues:&swapInt forParameter:NSOpenGLCPSwapInterval];
+            
+            [globalGLContext setView:[window contentView]];
             [globalGLContext makeCurrentContext];
             
-            RenderGradient(&globalBackbuffer, xOffset++, yOffset);
-            MacUpdateWindow(&globalBackbuffer);
+            // NOTE(yuval): OpenGL Non-Cocoa Setup
+            // TODO(yuval): @Add error checking for all OpenGL calls
+            glDisable(GL_DEPTH_TEST);
+            glLoadIdentity();
+            glViewport(0, 0, globalBackbuffer.width, globalBackbuffer.height);
             
-            [globalGLContext flushBuffer]; // NOTE(yuval): Uses vsync
+            glGenTextures(1, &globalBackbuffer.textureID);
             
+            glBindTexture(GL_TEXTURE_2D, globalBackbuffer.textureID);
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                         globalBackbuffer.width,
+                         globalBackbuffer.height,
+                         0, GL_BGRA,
+                         GL_UNSIGNED_INT_8_8_8_8_REV,
+                         0);
+            
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+            
+            // NOTE(yuval): Final Pre-Loop Setup
+            s32 xOffset = 0;
+            s32 yOffset = 0;
+            
+            // NOTE(yuval): Main Run Loop
+            globalRunning = true;
+            
+            u64 lastCounter = mach_absolute_time();
+            u64 flipWallClock = mach_absolute_time();
+            
+            while (globalRunning)
+            {
+                NSEvent* event;
+                
+                do
+                {
+                    event = [NSApp nextEventMatchingMask:NSEventMaskAny
+                            untilDate:nil
+                            inMode:NSDefaultRunLoopMode
+                            dequeue:YES];
+                    
+                    switch ([event type])
+                    {
+                        default:
+                        {
+                            [NSApp sendEvent:event];
+                        } break;
+                    }
+                } while (event != nil);
+                
+                [globalGLContext makeCurrentContext];
+                
+                RenderGradient(&globalBackbuffer, xOffset++, yOffset);
+                
+                flipWallClock = mach_absolute_time();
+                
+                MacUpdateWindow(&globalBackbuffer);
+                
+                f32 msPerFrame = (1000.0f * MacGetSecondsElapsed(lastCounter, flipWallClock));
+                f32 fps = (1000.0f / msPerFrame);
+                
+                // TODO(yuval): @Replace this with LogDebug
+                printf("%.2fms/f %.2ff/s\n", msPerFrame, fps);
+                
+                [globalGLContext flushBuffer]; // NOTE(yuval): Uses vsync
+                
+                lastCounter = flipWallClock;
+            }
         }
     }
 }

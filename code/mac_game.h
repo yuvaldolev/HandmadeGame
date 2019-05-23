@@ -10,5 +10,15 @@ struct MacOffscreenBuffer
     s32 bytesPerPixel;
 };
 
+struct MacSoundOutput
+{
+    GameSoundOutputBuffer soundBuffer;
+    u32 soundBufferSize;
+    
+    s16* coreAudioBuffer;
+    s16* readCursor;
+    s16* writeCursor;
+};
+
 #define MAC_GAME_H
 #endif
