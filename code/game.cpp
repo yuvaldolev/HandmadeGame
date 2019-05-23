@@ -178,11 +178,10 @@ GetCanonicalPosition(World* world, RawPosition pos)
 internal b32
 IsWorldPointEmpty(World* world, RawPosition pos)
 {
-    b32 isEmpty = false;
     CanonicalPosition canPos = GetCanonicalPosition(world, pos);
     TileMap* tileMap = GetTileMap(world, canPos.tileMapX, canPos.tileMapY);
     
-    isEmpty = IsTileMapPointEmpty(world, tileMap, canPos.tileX, canPos.tileY);
+    b32 isEmpty = IsTileMapPointEmpty(world, tileMap, canPos.tileX, canPos.tileY);
     
     return isEmpty;
 }
