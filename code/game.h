@@ -179,7 +179,7 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 //          Game           //
 /////////////////////////////
 
-struct canonical_position
+struct CanonicalPosition
 {
     s32 tileMapX;
     s32 tileMapY;
@@ -191,7 +191,7 @@ struct canonical_position
     f32 Y;
 };
 
-struct raw_position
+struct RawPosition
 {
     s32 tileMapX;
     s32 tileMapY;

@@ -83,7 +83,7 @@ DrawRectangle(GameOffscreenBuffer* buffer,
 }
 
 internal u32
-GetTileValueUnchecked(World* world,TileMap * tileMap, s32 tileX, s32 tileY)
+GetTileValueUnchecked(World* world,TileMap* tileMap, s32 tileX, s32 tileY)
 {
     Assert(tileMap);
     Assert((tileX >= 0 && tileX < world->tileCountX) &&
@@ -110,7 +110,7 @@ GetTileMap(World* world, s32 tileMapX, s32 tileMapY)
 }
 
 internal b32
-isTileMapPointEmpty(World* world, TileMap* tileMap,
+IsTileMapPointEmpty(World* world, TileMap* tileMap,
                     s32 tileX, s32 tileY)
 {
     b32 isEmpty = false;
@@ -130,10 +130,10 @@ isTileMapPointEmpty(World* world, TileMap* tileMap,
 }
 
 
-internal canonical_position
-GetCanonicalPosition(World* world, raw_position pos)
+internal CanonicalPosition
+GetCanonicalPosition(World* world, RawPosition pos)
 {
-    canonical_position result;
+    CanonicalPosition result;
     
     
     result.tileMapX = pos.tileMapX;
@@ -176,13 +176,13 @@ GetCanonicalPosition(World* world, raw_position pos)
 
 
 internal b32
-IsWorldPointEmpty(World* world, raw_position pos)
+IsWorldPointEmpty(World* world, RawPosition pos)
 {
     b32 isEmpty = false;
-    canonical_position canPos = GetCanonicalPosition(world, pos);
-    TileMap * tileMap = GetTileMap(world, canPos.tileMapX, canPos.tileMapY);
+    CanonicalPosition canPos = GetCanonicalPosition(world, pos);
+    TileMap* tileMap = GetTileMap(world, canPos.tileMapX, canPos.tileMapY);
     
-    isEmpty = isTileMapPointEmpty(world, tileMap, canPos.tileX, canPos.tileY);
+    isEmpty = IsTileMapPointEmpty(world, tileMap, canPos.tileX, canPos.tileY);
     
     return isEmpty;
 }
@@ -268,59 +268,60 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     
     u32 tiles00[9][17] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1, 1 }
+        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1,1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1,1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,1 },
+        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,0 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0,1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0,1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0,1 },
+        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1,1 }
     };
     
     u32 tiles01[9][17] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1, 1 }
+        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
     u32 tiles10[9][17] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 0 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1, 1 }
+        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
+        
     };
     u32 tiles11[9][17] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0, 1, 1, 1,  1, 1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 1, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0, 1, 0, 0,  0, 0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1, 1 }
+        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
     
     TileMap tileMaps[2][2];
     
-    tileMaps[0][0].tiles = (u32 *)tiles00;
-    tileMaps[0][1].tiles = (u32 *)tiles01;
-    tileMaps[1][0].tiles = (u32 *)tiles10;
-    tileMaps[1][1].tiles = (u32 *)tiles11;
+    tileMaps[0][0].tiles = (u32*)tiles00;
+    tileMaps[0][1].tiles = (u32*)tiles01;
+    tileMaps[1][0].tiles = (u32*)tiles10;
+    tileMaps[1][1].tiles = (u32*)tiles11;
     
-    world.tileMaps = (TileMap *)tileMaps;
+    world.tileMaps = (TileMap*)tileMaps;
     
     for (s32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
@@ -370,12 +371,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 f32 newPlayerX =  gameState->playerX + (dPlayerX * input->dTimePerFrame);
                 f32 newPlayerY = gameState->playerY + (dPlayerY * input->dTimePerFrame);
                 
-                raw_position playerPos = { gameState->playerTileMapX, gameState->playerTileMapY,
+                RawPosition playerPos = { gameState->playerTileMapX, gameState->playerTileMapY,
                     newPlayerX, newPlayerY };
                 
-                raw_position playerLeft = playerPos;
+                RawPosition playerLeft = playerPos;
                 playerLeft.X -= 0.5f*playerWidth;
-                raw_position playerRight = playerPos;
+                RawPosition playerRight = playerPos;
                 playerRight.X += 0.5f*playerWidth;
                 
                 if (IsWorldPointEmpty(&world,
@@ -385,7 +386,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     IsWorldPointEmpty(&world,
                                       playerPos))
                 {
-                    canonical_position canPos = GetCanonicalPosition(&world, playerPos);
+                    CanonicalPosition canPos = GetCanonicalPosition(&world, playerPos);
                     
                     gameState->playerTileMapX = canPos.tileMapX;
                     gameState->playerTileMapY = canPos.tileMapY;
@@ -398,7 +399,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
     
-    TileMap * tileMap = GetTileMap(&world, gameState->playerTileMapX, gameState->playerTileMapY);
+    TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX, gameState->playerTileMapY);
     
     
     for (s32 row = 0; row < world.tileCountY; ++row)
