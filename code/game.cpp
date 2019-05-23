@@ -83,7 +83,7 @@ DrawRectangle(GameOffscreenBuffer* buffer,
 }
 
 internal u32
-GetTileValueUnchecked(World* world,TileMap* tileMap, s32 tileX, s32 tileY)
+GetTileValueUnchecked(World* world, TileMap* tileMap, s32 tileX, s32 tileY)
 {
     Assert(tileMap);
     Assert((tileX >= 0 && tileX < world->tileCountX) &&
