@@ -1651,7 +1651,7 @@ WinMain(HINSTANCE instance,
                         f32 workSecondsElapsed = Win32GetSecondsElapsed(lastCounter, workCounter);
                         
                         f32 secondsElapsedForFrame = workSecondsElapsed;
-                        if (secondsElapsedForFrame <= targetSecondsPerFrame)
+                        if (secondsElapsedForFrame < targetSecondsPerFrame)
                         {
                             if (sleepIsGranular)
                             {

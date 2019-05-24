@@ -19,9 +19,9 @@ GameOutputSound(GameState* gameState, GameSoundOutputBuffer* buffer, const s32 t
 #if 0
         f32 sineValue = sinf(gameState->tSine);
         s16 sampleValue = (s16)(sineValue * TONE_VOLUME);
-#endif
+#else
         s16 sampleValue = 0;
-        
+#endif
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         
