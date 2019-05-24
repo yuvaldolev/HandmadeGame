@@ -130,7 +130,7 @@ struct GameController
 
 struct GameInput
 {
-    f32 dTimePerFrame;
+    f32 dtForFrame;
     
     GameButtonState mouseButtons[5];
     s32 mouseX, mouseY, mouseZ;

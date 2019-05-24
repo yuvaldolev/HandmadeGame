@@ -367,8 +367,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 dPlayerX *= 128.0f;
                 dPlayerY *= 128.0f;
                 
-                f32 newPlayerX =  gameState->playerX + (dPlayerX * input->dTimePerFrame);
-                f32 newPlayerY = gameState->playerY + (dPlayerY * input->dTimePerFrame);
+                f32 newPlayerX =  gameState->playerX + (dPlayerX * input->dtForFrame);
+                f32 newPlayerY = gameState->playerY + (dPlayerY * input->dtForFrame);
                 
                 RawPosition playerPos = { gameState->playerTileMapX, gameState->playerTileMapY,
                     newPlayerX, newPlayerY };
