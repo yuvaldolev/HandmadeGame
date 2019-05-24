@@ -481,7 +481,7 @@ Win32GetWallClock()
 internal f32
 Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
 {
-    f32 result = (f32(end.QuadPart - start.QuadPart) /
+    f32 result = ((f32)(end.QuadPart - start.QuadPart) /
                   (f32)globalPerfCountFrequency);
     return result;
 }
@@ -1655,7 +1655,7 @@ WinMain(HINSTANCE instance,
                         f32 workSecondsElapsed = Win32GetSecondsElapsed(lastCounter, workCounter);
                         
                         f32 secondsElapsedForFrame = workSecondsElapsed;
-                        if (secondsElapsedForFrame <= targetSecondsPerFrame)
+                        if (secondsElapsedForFrame < targetSecondsPerFrame)
                         {
                             if (sleepIsGranular)
                             {
