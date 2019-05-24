@@ -130,7 +130,7 @@ struct GameController
 
 struct GameInput
 {
-    f32 dTimePerFrame;
+    f32 dtForFrame;
     
     GameButtonState mouseButtons[5];
     s32 mouseX, mouseY, mouseZ;
@@ -178,10 +178,57 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 /////////////////////////////
 //          Game           //
 /////////////////////////////
+
+struct CanonicalPosition
+{
+    s32 tileMapX;
+    s32 tileMapY;
+    
+    s32 tileX;
+    s32 tileY;
+    
+    f32 X;
+    f32 Y;
+};
+
+struct RawPosition
+{
+    s32 tileMapX;
+    s32 tileMapY;
+    
+    f32 X;
+    f32 Y;
+};
+
+struct TileMap
+{
+    u32* tiles;
+};
+
+struct World
+{
+    s32 tileMapCountX;
+    s32 tileMapCountY;
+    
+    s32 tileCountX;
+    s32 tileCountY;
+    
+    f32 tileWidth;
+    f32 tileHeight;
+    
+    f32 upperLeftX;
+    f32 upperLeftY;
+    
+    TileMap* tileMaps;
+};
+
 struct GameState
 {
     f32 playerX;
     f32 playerY;
+    
+    s32 playerTileMapX;
+    s32 playerTileMapY;
 };
 
 #define GAME_H

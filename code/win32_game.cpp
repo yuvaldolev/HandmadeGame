@@ -1304,7 +1304,7 @@ WinMain(HINSTANCE instance,
                     
                     if (!globalPause)
                     {
-                        newInput->dTimePerFrame = targetSecondsPerFrame;
+                        newInput->dtForFrame = targetSecondsPerFrame;
                         
                         POINT mouseP;
                         GetCursorPos(&mouseP);
