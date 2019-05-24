@@ -139,16 +139,11 @@ MacAudioUnitCallback(void* inRefCon,
     s16* outputBufferL = (s16*)ioData->mBuffers[0].mData;
     s16* outputBufferR = (s16*)ioData->mBuffers[1].mData;
     
-    uint32 frequency = 256;
-    uint32 period = soundOutput->soundBuffer.samplesPerSecond/frequency;
-    uint32 halfPeriod = period/2;
-    local_persist uint32 periodIndex = 0;
-    
     for (u32 sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
     {
         outputBufferL[sampleIndex] = *soundOutput->readCursor++;
         outputBufferR[sampleIndex] = *soundOutput->readCursor++;
-        ++periodIndex;
+        
         if ((u8*)soundOutput->readCursor >=
             (((u8*)soundOutput->coreAudioBuffer) + soundOutput->soundBufferSize))
         {
@@ -328,7 +323,7 @@ MacSetupGamepad()
 internal void
 MacUpdateWindow(MacOffscreenBuffer* buffer)
 {
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     GLfloat vertices[] = {
@@ -388,8 +383,6 @@ MacResizeBackbuffer(MacOffscreenBuffer* buffer, s32 width, s32 height)
                           PROT_READ | PROT_WRITE,
                           MAP_PRIVATE | MAP_ANONYMOUS,
                           -1, 0);
-    
-    buffer->memory = (u8*)malloc(buffer->pitch * buffer->height);
 }
 
 internal void
@@ -608,10 +601,10 @@ int main(int argc, const char* argv[])
         
         mach_timebase_info(&globalTimebaseInfo);
         
-        s32 renderWidth = 1280;
-        s32 renderHeight = 720;
+        const s32 RENDER_WIDTH = 1280;
+        const s32 RENDER_HEIGHT = 720;
         
-        MacResizeBackbuffer(&globalBackbuffer, renderWidth, renderHeight);
+        MacResizeBackbuffer(&globalBackbuffer, RENDER_WIDTH, RENDER_HEIGHT);
         
         // NOTE(yuval): NSApplication Creation
         NSApplication* app = [NSApplication sharedApplication];
@@ -626,10 +619,10 @@ int main(int argc, const char* argv[])
         // NOTE(yuval): NSWindow Creation
         NSRect screenRect = [[NSScreen mainScreen] frame];
         
-        NSRect initialFrame = NSMakeRect((screenRect.size.width - renderWidth) * 0.5,
-                                         (screenRect.size.height - renderHeight) * 0.5,
-                                         renderWidth,
-                                         renderHeight);
+        NSRect initialFrame = NSMakeRect((screenRect.size.width - RENDER_WIDTH) * 0.5,
+                                         (screenRect.size.height - RENDER_HEIGHT) * 0.5,
+                                         RENDER_WIDTH,
+                                         RENDER_HEIGHT);
         
         NSWindow* window = [[NSWindow alloc] initWithContentRect:initialFrame
                 styleMask:NSWindowStyleMaskTitled |
@@ -755,7 +748,6 @@ int main(int argc, const char* argv[])
             
             // NOTE(yuval): Main Run Loop
             b32 firstRun = true;
-            
             globalRunning = true;
             
             u64 lastCounter = mach_absolute_time();
