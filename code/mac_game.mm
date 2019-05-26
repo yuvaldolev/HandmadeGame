@@ -19,7 +19,7 @@
 
 #include "mac_game.h"
 
-
+global_variable f32 globalAspectRatio;
 global_variable b32 globalRunning;
 global_variable b32 globalPause;
 global_variable MacOffscreenBuffer globalBackbuffer;
@@ -47,6 +47,13 @@ global_variable mach_timebase_info_data_t globalTimebaseInfo;
 - (void)windowWillClose:(id)sender
 {
     globalRunning = false;
+}
+
+- (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)frameSize
+{
+    // NOTE: Maintaining the proper aspect ratio
+    frameSize.height = frameSize.width / globalAspectRatio;
+    return frameSize;
 }
 
 - (void)windowDidResize:(NSNotification*)notification
@@ -726,8 +733,10 @@ main(int argc, const char* argv[])
         
         mach_timebase_info(&globalTimebaseInfo);
         
-        const s32 RENDER_WIDTH = 1280;
-        const s32 RENDER_HEIGHT = 720;
+        const s32 RENDER_WIDTH = 960;
+        const s32 RENDER_HEIGHT = 540;
+        
+        globalAspectRatio = (f32)RENDER_WIDTH / (f32)RENDER_HEIGHT;
         
         MacResizeBackbuffer(&globalBackbuffer, RENDER_WIDTH, RENDER_HEIGHT);
         

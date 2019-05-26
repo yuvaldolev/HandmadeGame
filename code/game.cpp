@@ -32,6 +32,28 @@ FloorF32ToS32(f32 value)
     return result;
 }
 
+internal u32
+GetTileValueUnchecked(World* world, TileMap* tileMap, s32 tileX, s32 tileY)
+{
+    u32 tileValue = tileMap->tiles[tileY * world->tileCountX + tileX];
+    return tileValue;
+}
+
+internal TileMap*
+GetTileMap(World* world, s32 tileMapX, s32 tileMapY)
+{
+    TileMap* tileMap = 0;
+    
+    if ((tileMapX >= 0 && tileMapX < world->tileMapCountX) &&
+        (tileMapY >= 0 && tileMapY < world->tileMapCountY))
+    {
+        tileMap = &world->tileMaps[(tileMapY * world->tileMapCountX +
+                                    tileMapX)];
+    }
+    
+    return tileMap;
+}
+
 internal CanonicalPosition
 GetCanonicalPosition(World* world, RawPosition pos)
 {
@@ -72,28 +94,6 @@ GetCanonicalPosition(World* world, RawPosition pos)
     }
     
     return result;
-}
-
-internal TileMap*
-GetTileMap(World* world, s32 tileMapX, s32 tileMapY)
-{
-    TileMap* tileMap = 0;
-    
-    if ((tileMapX >= 0 && tileMapX < world->tileMapCountX) &&
-        (tileMapY >= 0 && tileMapY < world->tileMapCountY))
-    {
-        tileMap = &world->tileMaps[(tileMapY * world->tileMapCountX +
-                                    tileMapX)];
-    }
-    
-    return tileMap;
-}
-
-internal u32
-GetTileValueUnchecked(World* world, TileMap* tileMap, s32 tileX, s32 tileY)
-{
-    u32 tileValue = tileMap->tiles[tileY * world->tileCountX + tileX];
-    return tileValue;
 }
 
 
@@ -250,7 +250,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     world.tileWidth = 60;
     world.tileHeight = 60;
     
-    world.upperLeftX = -38;
+    world.upperLeftX = -30;
     world.upperLeftY = 0;
     
     f32 playerWidth = world.tileWidth * 0.75f;
@@ -258,13 +258,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     u32 tiles00[9][17] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
     
@@ -277,30 +277,30 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
+        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
     u32 tiles10[9][17] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
         
     };
     u32 tiles11[9][17] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
     
     TileMap tileMaps[2][2];
@@ -322,15 +322,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             if (controller->isAnalog)
             {
-                // TODO(yuval & eran): Analog controller tuning
-                
-                //gameState->blueOffset -= (s32)(4.0f * controller->stickAverageX);
-                //gameState->greenOffset += (s32)(4.0f * controller->stickAverageY);
-                //gameState->toneHz = 256 + (s32)(128.0f * controller->stickAverageX);
+                // TODO(yuval, eran): Analog controller tuning
             }
             else
             {
-                // NOTE(Eran): Delta coordinates are pixels per second and not pixels
+                // NOTE: Delta coordinates are pixels per second and not pixels
                 f32 dPlayerX = 0.0f;
                 f32 dPlayerY = 0.0f;
                 
@@ -365,6 +361,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 
                 RawPosition playerLeft = playerPos;
                 playerLeft.X -= 0.5f*playerWidth;
+                
                 RawPosition playerRight = playerPos;
                 playerRight.X += 0.5f*playerWidth;
                 
@@ -385,7 +382,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     gameState->playerY = world.upperLeftY + world.tileHeight *
                         canPos.tileY +canPos.Y;
                 }
-                
             }
         }
     }
@@ -411,11 +407,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             f32 maxY = (f32)(minY + world.tileHeight);
             
             DrawRectangle(offscreenBuffer,
-                          minX, minY,
-                          maxX, maxY,
-                          tileColor,
-                          tileColor,
-                          tileColor);
+                          minX, minY, maxX, maxY,
+                          tileColor, tileColor, tileColor);
         }
     }
     
