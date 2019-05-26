@@ -229,6 +229,8 @@ struct GameState
     
     s32 playerTileMapX;
     s32 playerTileMapY;
+    
+    u32* pixelPointer;
 };
 
 #define GAME_H

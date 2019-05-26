@@ -291,6 +291,7 @@ Win32EndRecordingInput(Win32State* state)
     state->inputRecordingIndex = 0;
 }
 
+
 internal void
 Win32BeginInputPlayBack(Win32State* state, s32 inputPlayingIndex)
 {
@@ -480,7 +481,7 @@ Win32GetWallClock()
 internal f32
 Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
 {
-    f32 result = ((f32)(end.QuadPart - start.QuadPart) /
+    f32 result = (f32(end.QuadPart - start.QuadPart) /
                   (f32)globalPerfCountFrequency);
     return result;
 }
@@ -1220,8 +1221,8 @@ WinMain(HINSTANCE instance,
             {
                 Win32ReplayBuffer* replayBuffer = &win32State.replayBuffers[replayIndex];
                 
-                Win32GetInputFileLocation(replayBuffer->replayFileName,
-                                          sizeof(replayBuffer->replayFileName),
+                char fileName[WIN32_STATE_FILE_NAME_COUNT];
+                Win32GetInputFileLocation(fileName, sizeof(fileName),
                                           false, &win32State, replayIndex + 1);
                 
                 replayBuffer->fileHandle = CreateFileA(fileName, GENERIC_READ | GENERIC_WRITE,
@@ -1654,7 +1655,7 @@ WinMain(HINSTANCE instance,
                         f32 workSecondsElapsed = Win32GetSecondsElapsed(lastCounter, workCounter);
                         
                         f32 secondsElapsedForFrame = workSecondsElapsed;
-                        if (secondsElapsedForFrame < targetSecondsPerFrame)
+                        if (secondsElapsedForFrame <= targetSecondsPerFrame)
                         {
                             if (sleepIsGranular)
                             {
