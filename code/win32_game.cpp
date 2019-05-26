@@ -291,7 +291,6 @@ Win32EndRecordingInput(Win32State* state)
     state->inputRecordingIndex = 0;
 }
 
-
 internal void
 Win32BeginInputPlayBack(Win32State* state, s32 inputPlayingIndex)
 {
@@ -1221,8 +1220,8 @@ WinMain(HINSTANCE instance,
             {
                 Win32ReplayBuffer* replayBuffer = &win32State.replayBuffers[replayIndex];
                 
-                char fileName[WIN32_STATE_FILE_NAME_COUNT];
-                Win32GetInputFileLocation(fileName, sizeof(fileName),
+                Win32GetInputFileLocation(replayBuffer->replayFileName,
+                                          sizeof(replayBuffer->replayFileName),
                                           false, &win32State, replayIndex + 1);
                 
                 replayBuffer->fileHandle = CreateFileA(fileName, GENERIC_READ | GENERIC_WRITE,

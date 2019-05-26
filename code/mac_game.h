@@ -33,10 +33,26 @@ struct MacSoundOutput
 };
 
 #define MAC_STATE_FILE_NAME_COUNT FILENAME_MAX
+
+struct MacReplayBuffer
+{
+    s32 fileHandle;
+    char replayFileName[MAC_STATE_FILE_NAME_COUNT];
+    void* memoryBlock;
+};
+
 struct MacState
 {
     u64 totalSize;
     void* gameMemoryBlock;
+    
+    MacReplayBuffer replayBuffers[4];
+    
+    s32 recordingHandle;
+    s32 inputRecordingIndex;
+    
+    s32 playBackHandle;
+    s32 inputPlayingIndex;
     
     char appFileName[MAC_STATE_FILE_NAME_COUNT];
     char* onePastLastAppFileNameSlash;

@@ -21,6 +21,7 @@
 
 
 global_variable b32 globalRunning;
+global_variable b32 globalPause;
 global_variable MacOffscreenBuffer globalBackbuffer;
 global_variable NSOpenGLContext* globalGLContext;
 global_variable mach_timebase_info_data_t globalTimebaseInfo;
@@ -57,8 +58,8 @@ global_variable mach_timebase_info_data_t globalTimebaseInfo;
     
 	// OpenGL reshape. Typically done in the view
 	glDisable(GL_DEPTH_TEST);
-	glLoadIdentity();
-	glViewport(0, 0, frame.size.width, frame.size.height);
+    glLoadIdentity();
+    glViewport(0, 0, frame.size.width, frame.size.height);
     
     printf("Window Resized!\n");
 }
@@ -72,6 +73,101 @@ MacBuildAppPathFileName(char* dest, memory_index destCount,
                state->appFileName,
                state->onePastLastAppFileNameSlash - state->appFileName,
                fileName, StringLength(fileName));
+}
+
+internal void
+MacGetInputFileLocation(char* dest, memory_index destCount,
+                        b32 isInputStream, MacState* state,
+                        s32 slotIndex)
+{
+    char temp[64];
+    FormatString(temp, sizeof(temp), "loop_edit_%d_%s.gi",
+                 slotIndex, isInputStream ? "input" : "state");
+    
+    MacBuildAppPathFileName(dest, destCount, state, temp);
+}
+
+internal MacReplayBuffer*
+MacGetReplayBuffer(MacState* state, u32 index)
+{
+    Assert(index < ArrayCount(state->replayBuffers));
+    MacReplayBuffer* result = &state->replayBuffers[index];
+    return result;
+}
+
+internal void
+MacBeginRecordingInput(MacState* state, s32 inputRecordingIndex)
+{
+    MacReplayBuffer* replayBuffer = MacGetReplayBuffer(state, inputRecordingIndex - 1);
+    
+    if (replayBuffer->memoryBlock)
+    {
+        state->inputRecordingIndex = inputRecordingIndex;
+        
+        char fileName[MAC_STATE_FILE_NAME_COUNT];
+        MacGetInputFileLocation(fileName, sizeof(fileName),
+                                true, state, inputRecordingIndex);
+        
+        state->recordingHandle = open(fileName,
+                                      O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        
+        // @Replace memcpy with Copy
+        memcpy(replayBuffer->memoryBlock, state->gameMemoryBlock, state->totalSize);
+    }
+}
+
+internal void
+MacEndRecordingInput(MacState* state)
+{
+    close(state->recordingHandle);
+    state->inputRecordingIndex = 0;
+}
+
+internal void
+MacBeginInputPlayBack(MacState* state, s32 inputPlayingIndex)
+{
+    MacReplayBuffer* replayBuffer = MacGetReplayBuffer(state, inputPlayingIndex - 1);
+    
+    if (replayBuffer->memoryBlock)
+    {
+        state->inputPlayingIndex = inputPlayingIndex;
+        
+        char fileName[MAC_STATE_FILE_NAME_COUNT];
+        MacGetInputFileLocation(fileName, sizeof(fileName),
+                                true, state, inputPlayingIndex);
+        
+        state->playBackHandle = open(fileName, O_RDONLY);
+        
+        // @Replace memcpy with Copy
+        memcpy(state->gameMemoryBlock, replayBuffer->memoryBlock, state->totalSize);
+    }
+}
+
+internal void
+MacEndInputPlayBack(MacState* state)
+{
+    close(state->playBackHandle);
+    state->inputPlayingIndex = 0;
+}
+
+internal void
+MacRecordInput(MacState* state, GameInput* newInput)
+{
+    memory_index bytesWritten = write(state->recordingHandle, newInput, sizeof(*newInput));
+    // TODO(yuval): Check if bytes written is different then the size of newInput
+}
+
+internal void
+MacPlayBackInput(MacState* state, GameInput* newInput)
+{
+    memory_index bytesRead = read(state->playBackHandle, newInput, sizeof(*newInput));
+    
+    if (!bytesRead)
+    {
+        s32 playingIndex = state->inputPlayingIndex;
+        MacEndInputPlayBack(state);
+        MacBeginInputPlayBack(state, playingIndex);
+    }
 }
 
 internal f32
@@ -386,7 +482,7 @@ MacResizeBackbuffer(MacOffscreenBuffer* buffer, s32 width, s32 height)
 }
 
 internal void
-MacProcessPendingMessages(GameController* keyboardController)
+MacProcessPendingMessages(MacState* state, GameController* keyboardController)
 {
     NSEvent* event;
     
@@ -480,10 +576,38 @@ MacProcessPendingMessages(GameController* keyboardController)
 #if GAME_INTERNAL
                         case 'p':
                         {
+                            if (isDown)
+                            {
+                                globalPause = !globalPause;
+                            }
                         } break;
                         
                         case 'l':
                         {
+                            if (isDown)
+                            {
+                                if (state->inputPlayingIndex == 0)
+                                {
+                                    if (state->inputRecordingIndex == 0)
+                                    {
+                                        MacBeginRecordingInput(state, 1);
+                                    }
+                                    else
+                                    {
+                                        MacEndRecordingInput(state);
+                                        MacBeginInputPlayBack(state, 1);
+                                    }
+                                }
+                                else
+                                {
+                                    MacEndInputPlayBack(state);
+                                    
+                                    // TODO(yuval): Zero the whole input
+                                    // NOT JUST THE KEYBOARD CONTROLLER
+                                    GameController zeroController = { };
+                                    *keyboardController = zeroController;
+                                }
+                            }
                         } break;
 #endif
                     }
@@ -586,7 +710,8 @@ MacGetAppFileName(MacState* state)
     }
 }
 
-int main(int argc, const char* argv[])
+int
+main(int argc, const char* argv[])
 {
     @autoreleasepool
     {
@@ -684,6 +809,37 @@ int main(int argc, const char* argv[])
                                         gameMemoryAllocationFlags,
                                         -1, 0);
         
+        for (s32 replayIndex = 0;
+             replayIndex < ArrayCount(macState.replayBuffers);
+             ++replayIndex)
+        {
+            MacReplayBuffer* replayBuffer = &macState.replayBuffers[replayIndex];
+            
+            MacGetInputFileLocation(replayBuffer->replayFileName,
+                                    sizeof(replayBuffer->replayFileName),
+                                    false, &macState, replayIndex + 1);
+            
+            replayBuffer->fileHandle = open(replayBuffer->replayFileName,
+                                            O_RDWR | O_CREAT | O_TRUNC, 0644);
+            
+            lseek(replayBuffer->fileHandle, macState.totalSize - 1, SEEK_SET);
+            write(replayBuffer->fileHandle, "", 1);
+            
+            replayBuffer->memoryBlock = mmap(0,
+                                             macState.totalSize,
+                                             PROT_READ | PROT_WRITE,
+                                             MAP_PRIVATE,
+                                             replayBuffer->fileHandle, 0);
+            
+            close(replayBuffer->fileHandle);
+            
+            if (replayBuffer->memoryBlock == MAP_FAILED)
+            {
+                // TODO(yuval): @Diagnostic
+                printf("Memory Mapped File For Replay Buffer %d Failed!\n", replayIndex + 1);
+            }
+        }
+        
         if (macState.gameMemoryBlock != MAP_FAILED &&
             soundOutput.soundBuffer.samples != MAP_FAILED &&
             soundOutput.coreAudioBuffer != MAP_FAILED)
@@ -748,7 +904,9 @@ int main(int argc, const char* argv[])
             
             // NOTE(yuval): Main Run Loop
             b32 firstRun = true;
+            
             globalRunning = true;
+            globalPause = false;
             
             u64 lastCounter = mach_absolute_time();
             u64 flipWallClock = mach_absolute_time();
@@ -780,38 +938,43 @@ int main(int argc, const char* argv[])
                         oldKeyboardController->buttons[buttonIndex].endedDown;
                 }
                 
-                MacProcessPendingMessages(newKeyboardController);
+                MacProcessPendingMessages(&macState, newKeyboardController);
                 
-                [globalGLContext makeCurrentContext];
-                
-                // NOTE(yuval): Game Update And Render
-                ThreadContext thread = { };
-                
-                GameOffscreenBuffer offscreenBuffer = { };
-                offscreenBuffer.memory = globalBackbuffer.memory;
-                offscreenBuffer.width = globalBackbuffer.width;
-                offscreenBuffer.height = globalBackbuffer.height;
-                offscreenBuffer.pitch = globalBackbuffer.pitch;
-                offscreenBuffer.bytesPerPixel = globalBackbuffer.bytesPerPixel;
-                
-                if (game.UpdateAndRender)
+                if (!globalPause)
                 {
-                    game.UpdateAndRender(&thread, &gameMemory, newInput, &offscreenBuffer);
-                }
-                
-                // NOTE(yuval): Audio Update
-                soundOutput.soundBuffer.sampleCount = soundOutput.soundBuffer.samplesPerSecond /
-                    gameUpdateHz;
-                
-                if (game.GetSoundSamples)
-                {
-                    game.GetSoundSamples(&thread, &gameMemory, &soundOutput.soundBuffer);
-                }
-                
-                MacFillSoundBuffer(&soundOutput);
-                
-                if (firstRun)
-                {
+                    [globalGLContext makeCurrentContext];
+                    
+                    newInput->dtForFrame = targetSecondsPerFrame;
+                    
+                    // NOTE(yuval): Game Update And Render
+                    ThreadContext thread = { };
+                    
+                    GameOffscreenBuffer offscreenBuffer = { };
+                    offscreenBuffer.memory = globalBackbuffer.memory;
+                    offscreenBuffer.width = globalBackbuffer.width;
+                    offscreenBuffer.height = globalBackbuffer.height;
+                    offscreenBuffer.pitch = globalBackbuffer.pitch;
+                    offscreenBuffer.bytesPerPixel = globalBackbuffer.bytesPerPixel;
+                    
+                    if (macState.inputRecordingIndex)
+                    {
+                        MacRecordInput(&macState, newInput);
+                    }
+                    
+                    if (macState.inputPlayingIndex)
+                    {
+                        MacPlayBackInput(&macState, newInput);
+                    }
+                    
+                    if (game.UpdateAndRender)
+                    {
+                        game.UpdateAndRender(&thread, &gameMemory, newInput, &offscreenBuffer);
+                    }
+                    
+                    // NOTE(yuval): Audio Update
+                    soundOutput.soundBuffer.sampleCount = soundOutput.soundBuffer.samplesPerSecond /
+                        gameUpdateHz;
+                    
                     if (game.GetSoundSamples)
                     {
                         game.GetSoundSamples(&thread, &gameMemory, &soundOutput.soundBuffer);
@@ -819,52 +982,74 @@ int main(int argc, const char* argv[])
                     
                     MacFillSoundBuffer(&soundOutput);
                     
-                    firstRun = false;
-                }
-                
-                // NOTE(yuval): Enforcing A Video Refresh Rate
-                u64 workCounter = mach_absolute_time();
-                f32 workSecondsElapsed = MacGetSecondsElapsed(lastCounter, workCounter);
-                
-                f32 secondsElapsedForFrame = workSecondsElapsed;
-                if (secondsElapsedForFrame < targetSecondsPerFrame)
-                {
-                    u64 timeToWait = (u64)((targetSecondsPerFrame - workSecondsElapsed - 0.001) * 1.0E9 *
-                                           globalTimebaseInfo.denom /
-                                           globalTimebaseInfo.numer);
-                    
-                    u64 now = mach_absolute_time();
-                    mach_wait_until(now + timeToWait);
-                    
-                    secondsElapsedForFrame = MacGetSecondsElapsed(lastCounter,
-                                                                  mach_absolute_time());
-                    
-                    while (secondsElapsedForFrame < targetSecondsPerFrame)
+                    if (firstRun)
                     {
+                        if (game.GetSoundSamples)
+                        {
+                            game.GetSoundSamples(&thread, &gameMemory, &soundOutput.soundBuffer);
+                        }
+                        
+                        MacFillSoundBuffer(&soundOutput);
+                        
+                        firstRun = false;
+                    }
+                    
+                    // NOTE(yuval): Enforcing A Video Refresh Rate
+                    u64 workCounter = mach_absolute_time();
+                    f32 workSecondsElapsed = MacGetSecondsElapsed(lastCounter, workCounter);
+                    
+                    f32 secondsElapsedForFrame = workSecondsElapsed;
+                    if (secondsElapsedForFrame < targetSecondsPerFrame)
+                    {
+                        u64 timeToWait = (u64)((targetSecondsPerFrame - workSecondsElapsed - 0.001) * 1.0E9 *
+                                               globalTimebaseInfo.denom /
+                                               globalTimebaseInfo.numer);
+                        
+                        u64 now = mach_absolute_time();
+                        mach_wait_until(now + timeToWait);
+                        
                         secondsElapsedForFrame = MacGetSecondsElapsed(lastCounter,
                                                                       mach_absolute_time());
+                        
+                        while (secondsElapsedForFrame < targetSecondsPerFrame)
+                        {
+                            secondsElapsedForFrame = MacGetSecondsElapsed(lastCounter,
+                                                                          mach_absolute_time());
+                        }
                     }
+                    
+                    flipWallClock = mach_absolute_time();
+                    
+                    MacUpdateWindow(&globalBackbuffer);
+                    
+                    f32 msPerFrame = (1000.0f * MacGetSecondsElapsed(lastCounter, flipWallClock));
+                    f32 fps = (1000.0f / msPerFrame);
+                    
+                    // TODO(yuval): @Replace this with LogDebug
+                    printf("%.2fms/f %.2ff/s\n", msPerFrame, fps);
+                    
+                    [globalGLContext flushBuffer]; // NOTE(yuval): Uses vsync
+                    
+                    // TODO(yuval, eran): Metaprogramming SWAP
+                    GameInput* temp = newInput;
+                    newInput = oldInput;
+                    oldInput = temp;
+                    
+                    lastCounter = flipWallClock;
                 }
-                
-                flipWallClock = mach_absolute_time();
-                
-                MacUpdateWindow(&globalBackbuffer);
-                
-                f32 msPerFrame = (1000.0f * MacGetSecondsElapsed(lastCounter, flipWallClock));
-                f32 fps = (1000.0f / msPerFrame);
-                
-                // TODO(yuval): @Replace this with LogDebug
-                printf("%.2fms/f %.2ff/s\n", msPerFrame, fps);
-                
-                [globalGLContext flushBuffer]; // NOTE(yuval): Uses vsync
-                
-                // TODO(yuval, eran): Metaprogramming SWAP
-                GameInput* temp = newInput;
-                newInput = oldInput;
-                oldInput = temp;
-                
-                lastCounter = flipWallClock;
             }
+            
+#if 1
+            for (s32 replayIndex = 0;
+                 replayIndex < ArrayCount(macState.replayBuffers);
+                 ++replayIndex)
+            {
+                MacReplayBuffer* replayBuffer = &macState.replayBuffers[replayIndex];
+                
+                munmap(replayBuffer->memoryBlock,
+                       macState.totalSize);
+            }
+#endif
         }
     }
 }

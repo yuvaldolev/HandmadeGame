@@ -19,12 +19,6 @@ PathFlags="-Wl,-rpath,@loader_path"
 mkdir -p "../build"
 pushd "../build"
 
-# SDL Build
-# CommonFlags+=" -DGAME_SDL=1"
-# SDLFlags="-F /Library/Frameworks -framework SDL2"
-# $CXX $CommonFlags ../code/game.cpp -fPIC -shared -o game.so
-# $CXX $CommonFlags ../code/sdl_game.cpp -o sdl_game -ldl $SDLFlags $PathFlags
-
 # Mac Build
 CommonFlags+=" -DGAME_MAC=1"
 MacFlags="-framework Cocoa -framework OpenGL -framework AudioToolbox -framework IOKit"
