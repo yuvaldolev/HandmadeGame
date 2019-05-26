@@ -272,7 +272,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
         
-        gameState->pixelPointer = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "sample.BMP");
+        gameState->pixelPointer = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "sample.bmp");
         
         gameState->playerX = 100.0f;
         gameState->playerY = 100.0f;
