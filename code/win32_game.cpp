@@ -481,7 +481,7 @@ Win32GetWallClock()
 internal f32
 Win32GetSecondsElapsed(LARGE_INTEGER start, LARGE_INTEGER end)
 {
-    f32 result = (f32(end.QuadPart - start.QuadPart) /
+    f32 result = ((f32)(end.QuadPart - start.QuadPart) /
                   (f32)globalPerfCountFrequency);
     return result;
 }
@@ -1221,11 +1221,11 @@ WinMain(HINSTANCE instance,
             {
                 Win32ReplayBuffer* replayBuffer = &win32State.replayBuffers[replayIndex];
                 
-                char fileName[WIN32_STATE_FILE_NAME_COUNT];
-                Win32GetInputFileLocation(fileName, sizeof(fileName),
+                Win32GetInputFileLocation(replayBuffer->replayFileName,
+                                          sizeof(replayBuffer->replayFileName),
                                           false, &win32State, replayIndex + 1);
                 
-                replayBuffer->fileHandle = CreateFileA(fileName, GENERIC_READ | GENERIC_WRITE,
+                replayBuffer->fileHandle = CreateFileA(replayBuffer->replayFileName, GENERIC_READ | GENERIC_WRITE,
                                                        0, 0, CREATE_ALWAYS, 0, 0);
                 
                 // TODO(yuval & eran): @Refactor lowhigh conversions to macros
@@ -1655,7 +1655,7 @@ WinMain(HINSTANCE instance,
                         f32 workSecondsElapsed = Win32GetSecondsElapsed(lastCounter, workCounter);
                         
                         f32 secondsElapsedForFrame = workSecondsElapsed;
-                        if (secondsElapsedForFrame <= targetSecondsPerFrame)
+                        if (secondsElapsedForFrame < targetSecondsPerFrame)
                         {
                             if (sleepIsGranular)
                             {
@@ -1672,7 +1672,7 @@ WinMain(HINSTANCE instance,
                             
                             if (secondsElapsedForFrame > targetSecondsPerFrame)
                             {
-                                // Win32LogError("Sleep Missed Frame Rate Of %.2f\n", gameUpdateHz);
+                                Win32LogError("Sleep Missed Frame Rate Of %.2f\n", gameUpdateHz);
                             }
                             
                             while (secondsElapsedForFrame < targetSecondsPerFrame)

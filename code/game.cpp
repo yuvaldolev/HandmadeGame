@@ -8,7 +8,24 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
-internal s32
+internal u32*
+DEBUGLoadBMP(ThreadContext* thread,
+             DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
+             char* fileName)
+{
+    u32* pixels = 0;
+    DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
+    
+    if (readResult.contentsSize != 0)
+    {
+        BitmapHeader* header = (BitmapHeader*)readResult.contents;
+        pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
+    }
+    
+    return pixels;
+}
+
+inline s32
 RoundF32ToS32(f32 value)
 {
     s32 result = (s32)(value + 0.5f);
@@ -16,7 +33,7 @@ RoundF32ToS32(f32 value)
     return result;
 }
 
-internal u32
+inline u32
 RoundF32ToU32(f32 value)
 {
     u32 result = (u32)(value + 0.5f);
@@ -24,7 +41,7 @@ RoundF32ToU32(f32 value)
     return result;
 }
 
-internal s32
+inline s32
 FloorF32ToS32(f32 value)
 {
     // TODO(yuval, eran): Implement floorf function ourselves
@@ -83,45 +100,9 @@ DrawRectangle(GameOffscreenBuffer* buffer,
 }
 
 
-#pragma pack(push, 1)
-struct BitmapHeader
-{
-    u16 fileType;
-    u32 fileSize;
-    u16 reserved;
-    u16 reserved2;
-    u32 bitmapOffset;
-    u32 size;
-    s32 width;
-    s32 height;
-    u16 planes;
-    u16 bitsPerPixel;
-};
-#pragma pack(pop)
-
-internal u32*
-DEBUGLoadBMP(ThreadContext* thread,
-             DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
-             char* fileName)
-{
-    u32* pixels = 0;
-    DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
-    if (readResult.contentsSize != 0)
-    {
-        BitmapHeader* header = (BitmapHeader*)readResult.contents;
-        pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
-    }
-    
-    return pixels;
-}
-
 internal u32
 GetTileValueUnchecked(World* world, TileMap* tileMap, s32 tileX, s32 tileY)
 {
-    Assert(tileMap);
-    Assert((tileX >= 0 && tileX < world->tileCountX) &&
-           (tileY >= 0 && tileY < world->tileCountY));
-    
     u32 tileValue = tileMap->tiles[tileY * world->tileCountX + tileX];
     
     return tileValue;
@@ -424,15 +405,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     gameState->playerTileMapX = canPos.tileMapX;
                     gameState->playerTileMapY = canPos.tileMapY;
                     
-                    gameState->playerX = world.upperLeftX + world.tileWidth * canPos.tileX + canPos.X;
-                    gameState->playerY = world.upperLeftY + world.tileHeight * canPos.tileY +canPos.Y;
+                    gameState->playerX = world.upperLeftX + world.tileWidth *
+                        canPos.tileX + canPos.X;
+                    gameState->playerY = world.upperLeftY + world.tileHeight *
+                        canPos.tileY +canPos.Y;
                 }
                 
             }
         }
     }
     
-    TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX, gameState->playerTileMapY);
+    TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX,
+                                  gameState->playerTileMapY);
     
     
     for (s32 row = 0; row < world.tileCountY; ++row)
@@ -452,7 +436,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             f32 maxX = (f32)(minX + world.tileWidth);
             f32 maxY = (f32)(minY + world.tileHeight);
             
-            DrawRectangle(offscreenBuffer, minX, minY, maxX, maxY, tileColor, tileColor, tileColor);
+            DrawRectangle(offscreenBuffer,
+                          minX, minY,
+                          maxX, maxY,
+                          tileColor, tileColor, tileColor);
         }
     }
     
@@ -464,11 +451,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerLeft = gameState->playerX - (playerWidth * 0.5f);
     f32 playerTop = gameState->playerY - playerHeight;
     
-    DrawRectangle(
-        offscreenBuffer,
-        playerLeft, playerTop,
-        playerLeft + playerWidth, playerTop + playerHeight,
-        playerR, playerG, playerB);
+    DrawRectangle(offscreenBuffer,
+                  playerLeft, playerTop,
+                  playerLeft + playerWidth, playerTop + playerHeight,
+                  playerR, playerG, playerB);
     
     u32* source = gameState->pixelPointer;
     u32* dest = (u32*)offscreenBuffer->memory;

@@ -179,6 +179,22 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 //          Game           //
 /////////////////////////////
 
+#pragma pack(push, 1)
+struct BitmapHeader
+{
+    u16 fileType;
+    u32 fileSize;
+    u16 reserved;
+    u16 reserved2;
+    u32 bitmapOffset;
+    u32 size;
+    s32 width;
+    s32 height;
+    u16 planes;
+    u16 bitsPerPixel;
+};
+#pragma pack(pop)
+
 struct CanonicalPosition
 {
     s32 tileMapX;
