@@ -102,7 +102,7 @@ struct GameController
     
     union
     {
-        GameButtonState buttons[12];
+        GameButtonState buttons[13];
         
         struct
         {
@@ -110,6 +110,8 @@ struct GameController
             GameButtonState moveDown;
             GameButtonState moveLeft;
             GameButtonState moveRight;
+            
+            GameButtonState run;
             
             GameButtonState actionUp;
             GameButtonState actionDown;

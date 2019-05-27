@@ -9,6 +9,7 @@
 
 #include <AudioToolbox/AudioToolbox.h>
 #include <IOKit/hid/IOHIDLib.h>
+#include <Carbon/Carbon.h>
 
 #include <dlfcn.h>
 #include <libproc.h>
@@ -505,83 +506,83 @@ MacProcessPendingMessages(MacState* state, GameController* keyboardController)
             case NSEventTypeKeyDown:
             case NSEventTypeKeyUp:
             {
-                unichar keyChar = [[event charactersIgnoringModifiers] characterAtIndex:0];
+                u16 keyCode = [event keyCode];
                 b32 isDown = ([event type] == NSKeyDown);
                 BOOL isRepeated = [event isARepeat];
                 
                 NSEventModifierFlags modifierFlags = [event modifierFlags];
-                b32 optionKeyIsDown = modifierFlags & NSEventModifierFlagOption;
+                bool optionKeyIsDown = modifierFlags & NSEventModifierFlagOption;
                 
-                if (keyChar == NSF4FunctionKey && optionKeyIsDown)
+                if (keyCode == kVK_F4 && optionKeyIsDown)
                 {
                     globalRunning = false;
                 }
                 else if (isRepeated == NO)
                 {
-                    switch (keyChar)
+                    switch (keyCode)
                     {
-                        case 'w':
+                        case kVK_ANSI_W:
                         {
                             MacProcessKeyboardMessage(&keyboardController->moveUp, isDown);
                         } break;
                         
-                        case 'a':
+                        case kVK_ANSI_A:
                         {
                             MacProcessKeyboardMessage(&keyboardController->moveLeft, isDown);
                         } break;
                         
-                        case 's':
+                        case kVK_ANSI_S:
                         {
                             MacProcessKeyboardMessage(&keyboardController->moveDown, isDown);
                         } break;
                         
-                        case 'd':
+                        case kVK_ANSI_D:
                         {
                             MacProcessKeyboardMessage(&keyboardController->moveRight, isDown);
                         } break;
                         
-                        case 'q':
+                        case kVK_ANSI_Q:
                         {
                             MacProcessKeyboardMessage(&keyboardController->leftShoulder, isDown);
                         } break;
                         
-                        case 'e':
+                        case kVK_ANSI_E:
                         {
                             MacProcessKeyboardMessage(&keyboardController->rightShoulder, isDown);
                         } break;
                         
-                        case NSUpArrowFunctionKey:
+                        case kVK_UpArrow:
                         {
                             MacProcessKeyboardMessage(&keyboardController->actionUp, isDown);
                         } break;
                         
-                        case NSDownArrowFunctionKey:
+                        case kVK_DownArrow:
                         {
                             MacProcessKeyboardMessage(&keyboardController->actionDown, isDown);
                         } break;
                         
-                        case NSLeftArrowFunctionKey:
+                        case kVK_LeftArrow:
                         {
                             MacProcessKeyboardMessage(&keyboardController->actionLeft, isDown);
                         } break;
                         
-                        case NSRightArrowFunctionKey:
+                        case kVK_RightArrow:
                         {
                             MacProcessKeyboardMessage(&keyboardController->actionRight, isDown);
                         } break;
                         
-                        case 0x1B: // NOTE: Escape Key
+                        case kVK_Escape:
                         {
                             MacProcessKeyboardMessage(&keyboardController->back, isDown);
                         } break;
                         
-                        case ' ': // NOTE: Space Key
+                        case kVK_Space:
                         {
                             MacProcessKeyboardMessage(&keyboardController->start, isDown);
                         } break;
                         
 #if GAME_INTERNAL
-                        case 'p':
+                        case kVK_ANSI_P:
                         {
                             if (isDown)
                             {
@@ -589,7 +590,7 @@ MacProcessPendingMessages(MacState* state, GameController* keyboardController)
                             }
                         } break;
                         
-                        case 'l':
+                        case kVK_ANSI_L:
                         {
                             if (isDown)
                             {
@@ -618,6 +619,17 @@ MacProcessPendingMessages(MacState* state, GameController* keyboardController)
                         } break;
 #endif
                     }
+                }
+            } break;
+            
+            case NSEventTypeFlagsChanged:
+            {
+                NSEventModifierFlags modifierFlags = [event modifierFlags];
+                bool shiftKeyIsDown = modifierFlags & NSEventModifierFlagShift;
+                
+                if (shiftKeyIsDown != keyboardController->run.endedDown)
+                {
+                    MacProcessKeyboardMessage(&keyboardController->run, shiftKeyIsDown);
                 }
                 
             } break;
@@ -1031,12 +1043,13 @@ main(int argc, const char* argv[])
                     
                     MacUpdateWindow(&globalBackbuffer);
                     
+#if 0
                     f32 msPerFrame = (1000.0f * MacGetSecondsElapsed(lastCounter, flipWallClock));
                     f32 fps = (1000.0f / msPerFrame);
                     
                     // TODO(yuval): @Replace this with LogDebug
                     printf("%.2fms/f %.2ff/s\n", msPerFrame, fps);
-                    
+#endif
                     [globalGLContext flushBuffer]; // NOTE(yuval): Uses vsync
                     
                     // TODO(yuval, eran): Metaprogramming SWAP

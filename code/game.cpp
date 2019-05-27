@@ -355,7 +355,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 dPlayerX *= 128.0f;
                 dPlayerY *= 128.0f;
                 
-                if (controller->actionUp.endedDown)
+                if (controller->run.endedDown)
                 {
                     dPlayerX *= 2.0f;
                     dPlayerY *= 2.0f;
