@@ -1,4 +1,4 @@
-#if !defined(GAMEMEMORY_H)
+#if !defined(GAME_MEMORY_H)
 
 #define PushStruct(arena, type) (type*)PushSize_(arena, sizeof(type))
 #define PushArray(arena, type, count) (type*)PushSize_(arena, count * sizeof(type))
@@ -28,5 +28,5 @@ PushSize_(MemoryArena* arena, memory_index size)
     return result;
 }
 
-#define GAMEMEMORY_H
+#define GAME_MEMORY_H
 #endif

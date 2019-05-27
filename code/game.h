@@ -187,8 +187,8 @@ struct CanonicalPosition
     s32 tileX;
     s32 tileY;
     
-    f32 X;
-    f32 Y;
+    f32 tileRelX;
+    f32 tileRelY;
 };
 
 struct RawPosition
@@ -207,14 +207,14 @@ struct TileMap
 
 struct World
 {
+    f32 tileSideInMeters;
+    s32 tileSideInPixels;
+    
     s32 tileMapCountX;
     s32 tileMapCountY;
     
     s32 tileCountX;
     s32 tileCountY;
-    
-    f32 tileWidth;
-    f32 tileHeight;
     
     f32 upperLeftX;
     f32 upperLeftY;

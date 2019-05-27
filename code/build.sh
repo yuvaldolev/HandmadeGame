@@ -1,6 +1,7 @@
 #!/bin/bash
 
-CommonFlags="-DDEBUG -g -Wall -Werror -Wno-unsequenced -Wno-comment -Wno-multichar -Wno-write-strings -Wno-unused-variable -Wno-unused-function -Wno-sign-compare -Wno-unused-result -Wno-strict-aliasing -Wno-int-to-pointer-cast -Wno-switch -Wno-logical-not-parentheses -Wno-return-type -Wno-extern-c-compat -msse4.1 -std=c++11 -fno-rtti -fno-exceptions"
+CommonFlags="-DDEBUG -g -Weverything -Wall -Werror -std=c++11 -fno-rtti -fno-exceptions"
+CommonFlags+=" -Wno-unsequenced -Wno-comment -Wno-unused-variable -Wno-unused-function -Wno-sign-compare -Wno-unused-result -Wno-switch -Wno-old-style-cast -Wno-zero-as-null-pointer-constant -Wno-string-conversion  -Wno-newline-eof -Wno-c++98-compat-pedantic -Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-unused-parameter -Wno-padded -Wno-missing-prototypes -Wno-cast-align -Wno-sign-conversion -Wno-switch-enum -Wno-double-promotion -fsanitize=undefined"
 CommonFlags+=" -DGAME_INTERNAL=1 -DGAME_SLOW=1"
 
 # NOTE(yuval): Setup compiler
@@ -18,6 +19,9 @@ PathFlags="-Wl,-rpath,@loader_path"
 
 mkdir -p "../build"
 pushd "../build"
+
+#echo "Compiling Using: $CXX"
+#echo
 
 # Mac Build
 CommonFlags+=" -DGAME_MAC=1"

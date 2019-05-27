@@ -1,4 +1,4 @@
-#if !defined(GAMELOG_H)
+#if !defined(GAME_LOG_H)
 
 enum LogLevelEnum
 {
@@ -37,9 +37,6 @@ LogFini();
 const char* logFnName, long logLine, \
 const char* format, ...)
 typedef LOG(LogType);
-LOG(LogStub)
-{
-}
 
 // NOTE(yuval): This macro is internal do not use in other files!
 #define LogInternal(level, format, ...) Log(level, \
@@ -54,6 +51,6 @@ format, __VA_ARGS__)
 #define LogError(format, ...) LogInternal(LogLevelError, format, __VA_ARGS__)
 #define LogFatal(format, ...) LogInternal(LogLevelFatal, format, __VA_ARGS__)
 
-#define GAMELOG_H
+#define GAME_LOG_H
 #endif
 

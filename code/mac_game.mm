@@ -39,7 +39,7 @@ global_variable mach_timebase_info_data_t globalTimebaseInfo;
 	return YES;
 }
 
-- (void)applicationWillTerminate:(NSApplication*)sender
+- (void)applicationWillTerminate:(NSNotification *)notification
 {
 	printf("applicationWillTerminate\n");
 }
@@ -52,7 +52,7 @@ global_variable mach_timebase_info_data_t globalTimebaseInfo;
 - (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)frameSize
 {
     // NOTE: Maintaining the proper aspect ratio
-    frameSize.height = frameSize.width / globalAspectRatio;
+    frameSize.height = (f32)frameSize.width / globalAspectRatio;
     return frameSize;
 }
 
@@ -66,7 +66,7 @@ global_variable mach_timebase_info_data_t globalTimebaseInfo;
 	// OpenGL reshape. Typically done in the view
 	glDisable(GL_DEPTH_TEST);
     glLoadIdentity();
-    glViewport(0, 0, frame.size.width, frame.size.height);
+    glViewport(0, 0, (GLsizei)frame.size.width, (GLsizei)frame.size.height);
     
     printf("Window Resized!\n");
 }
@@ -981,8 +981,8 @@ main(int argc, const char* argv[])
                     }
                     
                     // NOTE(yuval): Audio Update
-                    soundOutput.soundBuffer.sampleCount = soundOutput.soundBuffer.samplesPerSecond /
-                        gameUpdateHz;
+                    soundOutput.soundBuffer.sampleCount = (s32)(soundOutput.soundBuffer.samplesPerSecond /
+                                                                gameUpdateHz);
                     
                     if (game.GetSoundSamples)
                     {

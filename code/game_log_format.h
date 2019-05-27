@@ -1,4 +1,4 @@
-#if !defined(GAMELOGFORMAT_H)
+#if !defined(GAME_LOG_FORMAT_H)
 
 void
 LogFormatSetPattern(MemoryArena* arena, const char* fmt);
@@ -9,6 +9,6 @@ LogFormatClean();
 void
 LogFormatMessage(LogMsg* msg);
 
-#define GAMELOGFORMAT_H
+#define GAME_LOG_FORMAT_H
 #endif
 
