@@ -77,10 +77,10 @@ RecanonicalizeCoord(World* world, s32 tileCount, s32* tileMap, s32* tile, f32* t
     }
 }
 
-internal CanonicalPosition
-RecanonicalizePosition(World* world, CanonicalPosition pos)
+internal WorldPosition
+RecanonicalizePosition(World* world, WorldPosition pos)
 {
-    CanonicalPosition result = pos;
+    WorldPosition result = pos;
     
     RecanonicalizeCoord(world, world->tileCountX, &result.tileMapX, &result.tileX, &result.tileRelX);
     RecanonicalizeCoord(world, world->tileCountY, &result.tileMapY, &result.tileY, &result.tileRelY);
@@ -110,7 +110,7 @@ IsTileMapPointEmpty(World* world, TileMap* tileMap,
 }
 
 internal b32
-IsWorldPointEmpty(World* world, CanonicalPosition pos)
+IsWorldPointEmpty(World* world, WorldPosition pos)
 {
     TileMap* tileMap = GetTileMap(world, pos.tileMapX, pos.tileMapY);
     b32 isEmpty = IsTileMapPointEmpty(world, tileMap, pos.tileX, pos.tileY);
@@ -231,6 +231,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         memory->isInitialized = true;
     }
     
+#define TILE_MAP_COUNT_X 17
+#define TILE_MAP_COUNT_Y 9
+    
     World world;
     
     world.tileSideInMeters = 1.4f;
@@ -240,8 +243,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     world.tileMapCountX = 2;
     world.tileMapCountY = 2;
     
-    world.tileCountX = 17;
-    world.tileCountY = 9;
+    world.tileCountX = TILE_MAP_COUNT_X;
+    world.tileCountY = TILE_MAP_COUNT_Y;
     
     world.upperLeftX = -(f32)world.tileSideInPixels / 2;
     world.upperLeftY = 0;
@@ -249,7 +252,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerHeight = 1.4f;
     f32 playerWidth = playerHeight * 0.75f;
     
-    u32 tiles00[9][17] = {
+    u32 tiles00[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
@@ -261,7 +264,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
     
-    u32 tiles01[9][17] = {
+    u32 tiles01[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
         { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
@@ -272,7 +275,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
     };
-    u32 tiles10[9][17] = {
+    
+    u32 tiles10[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
@@ -284,7 +288,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
         
     };
-    u32 tiles11[9][17] = {
+    
+    u32 tiles11[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 1, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
@@ -359,16 +364,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     dPlayerY *= 3.0f;
                 }
                 
-                CanonicalPosition newPlayerP = gameState->playerP;
+                WorldPosition newPlayerP = gameState->playerP;
                 newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
                 newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
                 newPlayerP = RecanonicalizePosition(&world, newPlayerP);
                 
-                CanonicalPosition playerLeft = newPlayerP;
+                WorldPosition playerLeft = newPlayerP;
                 playerLeft.tileRelX -= 0.5f * playerWidth;
                 playerLeft = RecanonicalizePosition(&world, playerLeft);
                 
-                CanonicalPosition playerRight = newPlayerP;
+                WorldPosition playerRight = newPlayerP;
                 playerRight.tileRelX += 0.5f * playerWidth;
                 playerRight = RecanonicalizePosition(&world, playerRight);
                 

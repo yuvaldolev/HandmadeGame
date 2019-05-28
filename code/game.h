@@ -180,8 +180,7 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 /////////////////////////////
 //          Game           //
 /////////////////////////////
-
-struct CanonicalPosition
+struct WorldPosition
 {
     s32 tileMapX;
     s32 tileMapY;
@@ -218,7 +217,7 @@ struct World
 
 struct GameState
 {
-    CanonicalPosition playerP;
+    WorldPosition playerP;
 };
 
 #define GAME_H
