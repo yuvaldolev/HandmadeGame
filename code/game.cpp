@@ -8,21 +8,34 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
-internal u32*
+internal loadedBitmap
 DEBUGLoadBMP(ThreadContext* thread,
              DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
              char* fileName)
 {
-    u32* pixels = 0;
+    loadedBitmap result = { };
     DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
     
     if (readResult.contentsSize != 0)
     {
         BitmapHeader* header = (BitmapHeader*)readResult.contents;
-        pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
+        result.width = header->width;
+        result.height = header->height;
+        result.pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
+        
+        u32* sourceDest = result.pixels;
+        
+        for (s32 Y = 0; Y < header->height; Y++)
+        {
+            for (s32 X = 0; X < header->width; X++)
+            {
+                *sourceDest = (*sourceDest >> 8) | (*sourceDest << 24);
+                ++sourceDest;
+            }
+        }
     }
     
-    return pixels;
+    return result;
 }
 
 inline s32
@@ -253,7 +266,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
         
-        gameState->pixelPointer = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "sample.bmp");
+        gameState->backdrop = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_background.bmp");
+        gameState->heroHead = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_head.bmp");
+        gameState->heroCape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_cape.bmp");
+        gameState->heroTorso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_torso.bmp");
         
         gameState->playerX = 100.0f;
         gameState->playerY = 100.0f;
@@ -418,7 +434,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX,
                                   gameState->playerTileMapY);
     
-    
     for (s32 row = 0; row < world.tileCountY; ++row)
     {
         for (s32 column = 0; column < world.tileCountX; ++column)
@@ -443,6 +458,39 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
     
+    loadedBitmap* backdrop = &gameState->backdrop;
+    
+    s32 blitWidth = backdrop->width;
+    s32 blitHeight = backdrop->height;
+    
+    if (blitWidth > offscreenBuffer->width)
+    {
+        blitWidth = offscreenBuffer->width;
+    }
+    
+    if (blitHeight > offscreenBuffer->height)
+    {
+        blitHeight = offscreenBuffer->height;
+    }
+    
+    u32* sourceRow = backdrop->pixels + backdrop->width *
+        (backdrop->height - 1);
+    u8* destRow = (u8*)offscreenBuffer->memory;
+    
+    for (s32 Y = 0; Y < blitHeight; Y++)
+    {
+        
+        u32* dest = (u32 *)destRow;
+        u32* source = sourceRow;
+        for (s32 X  = 0; X < blitWidth; X++)
+        {
+            *dest++ = *source++;
+        }
+        
+        destRow += offscreenBuffer->pitch;
+        sourceRow -= backdrop->width;
+    }
+    
     f32 playerR = 1.0f;
     f32 playerG = 0.0f;
     f32 playerB = 1.0f;
@@ -456,16 +504,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   playerLeft + playerWidth, playerTop + playerHeight,
                   playerR, playerG, playerB);
     
-    u32* source = gameState->pixelPointer;
-    u32* dest = (u32*)offscreenBuffer->memory;
-    
-    for (s32 Y = 0; Y < offscreenBuffer->height; Y++)
-    {
-        for (s32 X  = 0; X < offscreenBuffer->width; X++)
-        {
-            *dest++ = *source++;
-        }
-    }
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)

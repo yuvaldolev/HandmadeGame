@@ -192,6 +192,16 @@ struct BitmapHeader
     s32 height;
     u16 planes;
     u16 bitsPerPixel;
+    u32 compression;
+    u32 sizeOfBitmap;
+    s32 horiziontalResolution;
+    s32 verticalResolution;
+    u32 colorUser;
+    u32 colorsImportant;
+    
+    u32 redMask;
+    u32 greenMask;
+    u32 blueMask;
 };
 #pragma pack(pop)
 
@@ -221,6 +231,13 @@ struct TileMap
     u32* tiles;
 };
 
+struct loadedBitmap
+{
+    s32 width;
+    s32 height;
+    u32* pixels;
+};
+
 struct World
 {
     s32 tileMapCountX;
@@ -246,9 +263,12 @@ struct GameState
     s32 playerTileMapX;
     s32 playerTileMapY;
     
-    u32* pixelPointer;
+    loadedBitmap backdrop;
+    
+    loadedBitmap heroHead;
+    loadedBitmap heroCape;
+    loadedBitmap heroTorso;
 };
 
 #define GAME_H
 #endif
-
