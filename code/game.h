@@ -193,15 +193,6 @@ struct CanonicalPosition
     f32 tileRelY;
 };
 
-struct RawPosition
-{
-    s32 tileMapX;
-    s32 tileMapY;
-    
-    f32 X;
-    f32 Y;
-};
-
 struct TileMap
 {
     u32* tiles;
@@ -211,6 +202,7 @@ struct World
 {
     f32 tileSideInMeters;
     s32 tileSideInPixels;
+    f32 metersToPixels;
     
     s32 tileMapCountX;
     s32 tileMapCountY;
@@ -226,11 +218,7 @@ struct World
 
 struct GameState
 {
-    f32 playerX;
-    f32 playerY;
-    
-    s32 playerTileMapX;
-    s32 playerTileMapY;
+    CanonicalPosition playerP;
 };
 
 #define GAME_H

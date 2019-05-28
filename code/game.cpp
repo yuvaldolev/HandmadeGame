@@ -54,44 +54,36 @@ GetTileMap(World* world, s32 tileMapX, s32 tileMapY)
     return tileMap;
 }
 
-internal CanonicalPosition
-GetCanonicalPosition(World* world, RawPosition pos)
+inline void
+RecanonicalizeCoord(World* world, s32 tileCount, s32* tileMap, s32* tile, f32* tileRel)
 {
-    CanonicalPosition result;
+    s32 offset = FloorF32ToS32(*tileRel / world->tileSideInMeters);
+    *tile += offset;
+    *tileRel -= offset * world->tileSideInMeters;
     
-    result.tileMapX = pos.tileMapX;
-    result.tileMapY = pos.tileMapY;
+    Assert(*tileRel >= 0);
+    Assert(*tileRel < world->tileSideInPixels);
     
-    f32 X = pos.X - world->upperLeftX;
-    f32 Y = pos.Y - world->upperLeftY;
-    result.tileX = FloorF32ToS32(X / world->tileSideInPixels);
-    result.tileY = FloorF32ToS32(Y / world->tileSideInPixels);
-    
-    result.tileRelX = X - result.tileX * world->tileSideInPixels;
-    result.tileRelY = Y - result.tileY * world->tileSideInPixels;
-    
-    if (result.tileX < 0)
+    if (*tile < 0)
     {
-        result.tileX = world->tileCountX + result.tileX;
-        --result.tileMapX;
-    }
-    if (result.tileY < 0)
-    {
-        result.tileY = world->tileCountY + result.tileY;
-        --result.tileMapY;
+        *tile = tileCount + *tile;
+        --(*tileMap);
     }
     
-    if (result.tileX >= world->tileCountX)
+    if (*tile >= tileCount)
     {
-        result.tileX = result.tileX - world->tileCountX;
-        ++result.tileMapX;
+        *tile = *tile - tileCount;
+        ++(*tileMap);
     }
+}
+
+internal CanonicalPosition
+RecanonicalizePosition(World* world, CanonicalPosition pos)
+{
+    CanonicalPosition result = pos;
     
-    if (result.tileY >= world->tileCountY)
-    {
-        result.tileY =  result.tileY - world->tileCountY;
-        ++result.tileMapY;
-    }
+    RecanonicalizeCoord(world, world->tileCountX, &result.tileMapX, &result.tileX, &result.tileRelX);
+    RecanonicalizeCoord(world, world->tileCountY, &result.tileMapY, &result.tileY, &result.tileRelY);
     
     return result;
 }
@@ -118,12 +110,10 @@ IsTileMapPointEmpty(World* world, TileMap* tileMap,
 }
 
 internal b32
-IsWorldPointEmpty(World* world, RawPosition pos)
+IsWorldPointEmpty(World* world, CanonicalPosition pos)
 {
-    CanonicalPosition canPos = GetCanonicalPosition(world, pos);
-    TileMap* tileMap = GetTileMap(world, canPos.tileMapX, canPos.tileMapY);
-    
-    b32 isEmpty = IsTileMapPointEmpty(world, tileMap, canPos.tileX, canPos.tileY);
+    TileMap* tileMap = GetTileMap(world, pos.tileMapX, pos.tileMapY);
+    b32 isEmpty = IsTileMapPointEmpty(world, tileMap, pos.tileX, pos.tileY);
     
     return isEmpty;
 }
@@ -231,10 +221,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
         
-        gameState->playerX = 100.0f;
-        gameState->playerY = 100.0f;
-        gameState->playerTileMapX = 0;
-        gameState->playerTileMapY = 0;
+        gameState->playerP.tileMapX = 0;
+        gameState->playerP.tileMapY = 0;
+        gameState->playerP.tileX = 3;
+        gameState->playerP.tileY = 3;
+        gameState->playerP.tileRelX = 5.0f;
+        gameState->playerP.tileRelY = 5.0f;
         
         memory->isInitialized = true;
     }
@@ -243,6 +235,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     world.tileSideInMeters = 1.4f;
     world.tileSideInPixels = 60;
+    world.metersToPixels = (f32)world.tileSideInPixels / world.tileSideInMeters;
     
     world.tileMapCountX = 2;
     world.tileMapCountY = 2;
@@ -253,8 +246,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     world.upperLeftX = -(f32)world.tileSideInPixels / 2;
     world.upperLeftY = 0;
     
-    f32 playerWidth = world.tileSideInPixels * 0.75f;
-    f32 playerHeight = (f32)world.tileSideInPixels;
+    f32 playerHeight = 1.4f;
+    f32 playerWidth = playerHeight * 0.75f;
     
     u32 tiles00[9][17] = {
         { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
@@ -312,6 +305,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     world.tileMaps = (TileMap*)tileMaps;
     
+    TileMap* tileMap = GetTileMap(&world, gameState->playerP.tileMapX,
+                                  gameState->playerP.tileMapY);
+    
     for (s32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
          ++controllerIndex)
@@ -352,50 +348,39 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     dPlayerX = 1.0f;
                 }
                 
-                dPlayerX *= 128.0f;
-                dPlayerY *= 128.0f;
-                
                 if (controller->run.endedDown)
                 {
-                    dPlayerX *= 2.0f;
-                    dPlayerY *= 2.0f;
+                    dPlayerX *= 6.0f;
+                    dPlayerY *= 6.0f;
+                }
+                else
+                {
+                    dPlayerX *= 3.0f;
+                    dPlayerY *= 3.0f;
                 }
                 
-                f32 newPlayerX =  gameState->playerX + (dPlayerX * input->dtForFrame);
-                f32 newPlayerY = gameState->playerY + (dPlayerY * input->dtForFrame);
+                CanonicalPosition newPlayerP = gameState->playerP;
+                newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
+                newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
+                newPlayerP = RecanonicalizePosition(&world, newPlayerP);
                 
-                RawPosition playerPos = { gameState->playerTileMapX, gameState->playerTileMapY,
-                    newPlayerX, newPlayerY };
+                CanonicalPosition playerLeft = newPlayerP;
+                playerLeft.tileRelX -= 0.5f * playerWidth;
+                playerLeft = RecanonicalizePosition(&world, playerLeft);
                 
-                RawPosition playerLeft = playerPos;
-                playerLeft.X -= 0.5f * playerWidth;
+                CanonicalPosition playerRight = newPlayerP;
+                playerRight.tileRelX += 0.5f * playerWidth;
+                playerRight = RecanonicalizePosition(&world, playerRight);
                 
-                RawPosition playerRight = playerPos;
-                playerRight.X += 0.5f * playerWidth;
-                
-                if (IsWorldPointEmpty(&world,
-                                      playerLeft) &&
-                    IsWorldPointEmpty(&world,
-                                      playerRight) &&
-                    IsWorldPointEmpty(&world,
-                                      playerPos))
+                if (IsWorldPointEmpty(&world, newPlayerP) &&
+                    IsWorldPointEmpty(&world, playerLeft) &&
+                    IsWorldPointEmpty(&world, playerRight))
                 {
-                    CanonicalPosition canPos = GetCanonicalPosition(&world, playerPos);
-                    
-                    gameState->playerTileMapX = canPos.tileMapX;
-                    gameState->playerTileMapY = canPos.tileMapY;
-                    
-                    gameState->playerX = world.upperLeftX + world.tileSideInPixels *
-                        canPos.tileX + canPos.tileRelX;
-                    gameState->playerY = world.upperLeftY + world.tileSideInPixels *
-                        canPos.tileY +canPos.tileRelY;
+                    gameState->playerP = newPlayerP;
                 }
             }
         }
     }
-    
-    TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX,
-                                  gameState->playerTileMapY);
     
     for (s32 row = 0; row < world.tileCountY; ++row)
     {
@@ -407,6 +392,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             if (tileID == 1)
             {
                 tileColor = 1.0f;
+            }
+            
+            if ((column == gameState->playerP.tileX) &&
+                (row == gameState->playerP.tileY))
+            {
+                tileColor = 0.0f;
             }
             
             f32 minX = (world.upperLeftX + (f32)(column * world.tileSideInPixels));
@@ -424,13 +415,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerG = 1.0f;
     f32 playerB = 0.0f;
     
-    f32 playerLeft = gameState->playerX - (playerWidth * 0.5f);
-    f32 playerTop = gameState->playerY - playerHeight;
+    f32 playerLeft = world.upperLeftX + world.tileSideInPixels * gameState->playerP.tileX +
+        gameState->playerP.tileRelX * world.metersToPixels -
+        playerWidth * world.metersToPixels * 0.5f;
+    f32 playerTop = world.upperLeftY + world.tileSideInPixels * gameState->playerP.tileY +
+        gameState->playerP.tileRelY * world. metersToPixels -
+        playerHeight * world.metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,
-                  playerLeft + playerWidth,
-                  playerTop + playerHeight,
+                  playerLeft + playerWidth * world.metersToPixels,
+                  playerTop + playerHeight * world.metersToPixels,
                   playerR, playerG, playerB);
 }
 
