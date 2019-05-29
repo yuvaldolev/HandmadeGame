@@ -8,12 +8,12 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
-internal loadedBitmap
+internal LoadedBitmap
 DEBUGLoadBMP(ThreadContext* thread,
              DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
              char* fileName)
 {
-    loadedBitmap result = { };
+    LoadedBitmap result = { };
     DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
     
     if (readResult.contentsSize != 0)
@@ -458,7 +458,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
     
-    loadedBitmap* backdrop = &gameState->backdrop;
+    LoadedBitmap* backdrop = &gameState->backdrop;
     
     s32 blitWidth = backdrop->width;
     s32 blitHeight = backdrop->height;

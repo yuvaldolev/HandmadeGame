@@ -231,7 +231,7 @@ struct TileMap
     u32* tiles;
 };
 
-struct loadedBitmap
+struct LoadedBitmap
 {
     s32 width;
     s32 height;
@@ -263,11 +263,11 @@ struct GameState
     s32 playerTileMapX;
     s32 playerTileMapY;
     
-    loadedBitmap backdrop;
+    LoadedBitmap backdrop;
     
-    loadedBitmap heroHead;
-    loadedBitmap heroCape;
-    loadedBitmap heroTorso;
+    LoadedBitmap heroHead;
+    LoadedBitmap heroCape;
+    LoadedBitmap heroTorso;
 };
 
 #define GAME_H
