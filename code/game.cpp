@@ -15,7 +15,6 @@ DEBUGLoadBMP(ThreadContext* thread,
 {
     LoadedBitmap result = { };
     DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
-    
     if (readResult.contentsSize != 0)
     {
         BitmapHeader* header = (BitmapHeader*)readResult.contents;

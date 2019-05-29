@@ -233,9 +233,9 @@ struct TileMap
 
 struct LoadedBitmap
 {
+    u32* pixels;
     s32 width;
     s32 height;
-    u32* pixels;
 };
 
 struct World
