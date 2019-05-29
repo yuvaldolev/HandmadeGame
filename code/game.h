@@ -205,6 +205,12 @@ struct BitmapHeader
 };
 #pragma pack(pop)
 
+struct BitScanResult
+{
+    s32 index;
+    b32 found;
+};
+
 struct CanonicalPosition
 {
     s32 tileMapX;

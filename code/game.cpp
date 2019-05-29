@@ -8,6 +8,26 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
+inline BitScanResult
+FindLeastSignificantSetBit(u32 value)
+{
+    BitScanResult result = { };
+#if COMPILER_MSVC
+    result.found = _BitScanForward((unsigned long*)&result.index, value);
+#else
+    for (u32 index = 0; index < 32; index++)
+    {
+        if (value & (1 << index))
+        {
+            result.index = index;
+            result.found = true;
+            break;
+        }
+    }
+#endif
+    return result;
+}
+
 internal LoadedBitmap
 DEBUGLoadBMP(ThreadContext* thread,
              DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
@@ -22,14 +42,33 @@ DEBUGLoadBMP(ThreadContext* thread,
         result.height = header->height;
         result.pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
         
+        u32 redMask = header->redMask;
+        u32 greenMask = header->greenMask;
+        u32 blueMask = header->blueMask;
+        u32 alphaMask = ~(header->blueMask | header->redMask | header->greenMask);
+        
+        BitScanResult redShift = FindLeastSignificantSetBit(redMask);
+        BitScanResult greenShift = FindLeastSignificantSetBit(greenMask);
+        BitScanResult blueShift = FindLeastSignificantSetBit(blueMask);
+        BitScanResult alphaShift = FindLeastSignificantSetBit(alphaMask);
+        
+        
+        Assert(redShift.found);
+        Assert(greenShift.found);
+        Assert(blueShift.found);
+        Assert(alphaShift.found);
+        
         u32* sourceDest = result.pixels;
         
         for (s32 Y = 0; Y < header->height; Y++)
         {
             for (s32 X = 0; X < header->width; X++)
             {
-                *sourceDest = (*sourceDest >> 8) | (*sourceDest << 24);
-                ++sourceDest;
+                u32 c = *sourceDest;
+                *sourceDest++ = (((( c >> alphaShift.index) & 0xFF) << 24) |
+                                 ((( c >> redShift.index) & 0xFF) << 16) |
+                                 ((( c >> greenShift.index) & 0xFF) << 8) |
+                                 ((( c >> blueShift.index) & 0xFF) << 0));
             }
         }
     }
@@ -59,6 +98,74 @@ FloorF32ToS32(f32 value)
     // TODO(yuval, eran): Implement floorf function ourselves
     s32 result = (s32)floorf(value);
     return result;
+}
+
+internal void
+TEMPDrawBitMap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 realX, f32 realY)
+{
+    s32 minX = RoundF32ToS32(realX);
+    s32 minY = RoundF32ToS32(realY);
+    s32 maxX = RoundF32ToS32((f32)bitmap->width + minX);
+    s32 maxY = RoundF32ToS32((f32)bitmap->height + minY);
+    
+    if (minX < 0)
+    {
+        minX = 0;
+    }
+    
+    if (minY < 0)
+    {
+        minY = 0;
+    }
+    
+    if (maxX > offscreenBuffer->width)
+    {
+        maxX= offscreenBuffer->width;
+    }
+    
+    if (maxY> offscreenBuffer->height)
+    {
+        maxY = offscreenBuffer->height;
+    }
+    
+    u32* sourceRow = bitmap->pixels + bitmap->width *
+        (bitmap->height - 1);
+    u8* destRow = ((u8*)offscreenBuffer->memory + offscreenBuffer->bytesPerPixel * minX +
+                   offscreenBuffer->pitch * minY);
+    
+    for (s32 Y = minY; Y < maxY; Y++)
+    {
+        
+        u32* dest = (u32 *)destRow;
+        u32* source = sourceRow;
+        for (s32 X = minX; X < maxX; X++)
+        {
+            f32 alpha = (f32)((*source >> 24) & 0xFF) /255.0f;
+            f32 sourceR = (f32)((*source >> 16) & 0xFF);
+            f32 sourceG = (f32)((*source >> 8) & 0xFF);
+            f32 sourceB = (f32)((*source >> 0) & 0xFF);
+            
+            f32 destR = (f32)((*dest >> 16) & 0xFF);
+            f32 destG = (f32)((*dest >> 8) & 0xFF);
+            f32 destB = (f32)((*dest >> 0) & 0xFF);
+            
+            f32 R = (1.0f - alpha) * destR + alpha * sourceR;
+            f32 G = (1.0f - alpha) * destG + alpha * sourceG;
+            f32 B = (1.0f - alpha) * destB + alpha * sourceB;
+            
+            *dest = (((u32)(R + 0.5f) << 16) |
+                     ((u32)(G + 0.5f) << 8) |
+                     ((u32)(B + 0.5f) << 0));
+            
+            
+            dest++;
+            source++;
+        }
+        
+        destRow += offscreenBuffer->pitch;
+        sourceRow -= bitmap->width;
+    }
+    
 }
 
 internal void
@@ -430,6 +537,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
     
+    TEMPDrawBitMap(offscreenBuffer, &gameState->backdrop, 0, 0);
+    
+    
     TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX,
                                   gameState->playerTileMapY);
     
@@ -443,51 +553,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             if (tileID == 1)
             {
                 tileColor = 1.0f;
+                f32 minX = (world.upperLeftX + (f32)(column * world.tileWidth));
+                f32 minY = (world.upperLeftY + (f32)(row * world.tileHeight));
+                f32 maxX = (f32)(minX + world.tileWidth);
+                f32 maxY = (f32)(minY + world.tileHeight);
+                
+                DrawRectangle(offscreenBuffer,
+                              minX, minY,
+                              maxX, maxY,
+                              tileColor, tileColor, tileColor);
             }
-            
-            f32 minX = (world.upperLeftX + (f32)(column * world.tileWidth));
-            f32 minY = (world.upperLeftY + (f32)(row * world.tileHeight));
-            f32 maxX = (f32)(minX + world.tileWidth);
-            f32 maxY = (f32)(minY + world.tileHeight);
-            
-            DrawRectangle(offscreenBuffer,
-                          minX, minY,
-                          maxX, maxY,
-                          tileColor, tileColor, tileColor);
         }
-    }
-    
-    LoadedBitmap* backdrop = &gameState->backdrop;
-    
-    s32 blitWidth = backdrop->width;
-    s32 blitHeight = backdrop->height;
-    
-    if (blitWidth > offscreenBuffer->width)
-    {
-        blitWidth = offscreenBuffer->width;
-    }
-    
-    if (blitHeight > offscreenBuffer->height)
-    {
-        blitHeight = offscreenBuffer->height;
-    }
-    
-    u32* sourceRow = backdrop->pixels + backdrop->width *
-        (backdrop->height - 1);
-    u8* destRow = (u8*)offscreenBuffer->memory;
-    
-    for (s32 Y = 0; Y < blitHeight; Y++)
-    {
-        
-        u32* dest = (u32 *)destRow;
-        u32* source = sourceRow;
-        for (s32 X  = 0; X < blitWidth; X++)
-        {
-            *dest++ = *source++;
-        }
-        
-        destRow += offscreenBuffer->pitch;
-        sourceRow -= backdrop->width;
     }
     
     f32 playerR = 1.0f;
@@ -503,6 +579,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   playerLeft + playerWidth, playerTop + playerHeight,
                   playerR, playerG, playerB);
     
+    TEMPDrawBitMap(offscreenBuffer, &gameState->heroHead, playerLeft, playerTop);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
