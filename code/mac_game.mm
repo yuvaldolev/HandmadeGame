@@ -26,6 +26,7 @@ global_variable b32 globalPause;
 global_variable MacOffscreenBuffer globalBackbuffer;
 global_variable NSOpenGLContext* globalGLContext;
 global_variable mach_timebase_info_data_t globalTimebaseInfo;
+global_variable GameController globalGamepadController;
 
 @interface MacAppDelegate : NSObject<NSApplicationDelegate, NSWindowDelegate>
 @end
@@ -310,6 +311,209 @@ MacInitCoreAudio(MacSoundOutput* soundOutput)
     AudioOutputUnitStart(audioUnit);
 }
 
+internal f32
+MacNormalizeHIDStick(long stickValue, long minValue, long maxValue)
+{
+    const f32 DEAD_ZONE = 10.0f;
+    
+    f32 result = 0;
+    
+    f32 zeroValue = minValue + maxValue / 2;
+    
+    if (minValue != maxValue &&
+        ((stickValue > zeroValue + DEAD_ZONE) ||
+         (stickValue < zeroValue - DEAD_ZONE)))
+    {
+        result = 2.0f * ((f32)(stickValue - minValue) / (maxValue - minValue)) - 1;
+    }
+    
+    return result;
+}
+
+
+internal void
+MacProcessHIDDigitalButton(GameButtonState* newState, b32 isDown)
+{
+    newState->endedDown = isDown;
+    ++newState->halfTransitionCount;
+}
+
+internal void
+MacHIDAction(void* context, IOReturn result,
+             void* sender, IOHIDValueRef value)
+{
+    if (IOHIDValueGetLength(value) <= 2)
+    {
+        IOHIDElementRef elementRef = IOHIDValueGetElement(value);
+        
+        IOHIDElementCookie cookie = IOHIDElementGetCookie(elementRef);
+        u32 usagePage = IOHIDElementGetUsagePage(elementRef);
+        u32 usage = IOHIDElementGetUsage(elementRef);
+        CFIndex logicalMin = IOHIDElementGetLogicalMin(elementRef);
+		CFIndex logicalMax = IOHIDElementGetLogicalMax(elementRef);
+        
+        CFIndex elementValue = IOHIDValueGetIntegerValue(value);
+        
+        // NOTE(yuval): Usage Pages
+        //   1 - Generic Desktop (mouse, joystick)
+        //   2 - Simulation Controls
+        //   3 - VR Controls
+        //   4 - Sports Controls
+        //   5 - Game Controls
+        //   6 - Generic Device Controls (battery, wireless, security code)
+        //   7 - Keyboard/Keypad
+        //   8 - LED
+        //   9 - Button
+        //   A - Ordinal
+        //   B - Telephony
+        //   C - Consumer
+        //   D - Digitizers
+        //  10 - Unicode
+        //  14 - Alphanumeric Display
+        //  40 - Medical Instrument
+        
+#if 0
+        printf("HID Event: Cookie: %ld  Page/Usage = %u/%u  Min/Max = %ld/%ld  Value = %ld\n",
+               (long)cookie,
+               usagePage,
+               usage,
+               logicalMin,
+               logicalMax,
+               elementValue);
+#endif
+        
+        // TODO(yuval): Handle Multiple Controllers
+        if (usagePage == 1)
+        {
+            switch (usage)
+            {
+                // TODO(yuval): Maybe add fake digital button processing for the stick X/Y
+                case 0x30: // NOTE: Stick X
+                {
+                    globalGamepadController.stickAverageX = MacNormalizeHIDStick(elementValue,
+                                                                                 logicalMin,
+                                                                                 logicalMax);
+                } break;
+                
+                case 0x31: // NOTE: Stick Y
+                {
+                    globalGamepadController.stickAverageY = -MacNormalizeHIDStick(elementValue,
+                                                                                  logicalMin,
+                                                                                  logicalMax);
+                } break;
+                
+                case 0x39: // NOTE: DPAD
+                {
+                    // TODO(yuval): Maybe add fake stick movement to the dpad
+                    MacProcessHIDDigitalButton(&globalGamepadController.moveUp, 0);
+                    MacProcessHIDDigitalButton(&globalGamepadController.moveDown, 0);
+                    MacProcessHIDDigitalButton(&globalGamepadController.moveLeft, 0);
+                    MacProcessHIDDigitalButton(&globalGamepadController.moveRight, 0);
+                    
+                    switch (elementValue)
+                    {
+                        case 0: // NOTE: Up
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveUp, 1);
+                        } break;
+                        
+                        case 1: // NOTE: Up & Right
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveUp, 1);
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveRight, 1);
+                        } break;
+                        
+                        case 2: // NOTE: Right
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveRight, 1);
+                        } break;
+                        
+                        case 3: // NOTE: Right & Down
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveRight, 1);
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveDown, 1);
+                        } break;
+                        
+                        case 4: // NOTE: Down
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveDown, 1);
+                        } break;
+                        
+                        case 5: // NOTE: Down & Left
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveDown, 1);
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveLeft, 1);
+                        } break;
+                        
+                        case 6: // NOTE: Left
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveLeft, 1);
+                        } break;
+                        
+                        case 7: // NOTE: Left & Up
+                        {
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveLeft, 1);
+                            MacProcessHIDDigitalButton(&globalGamepadController.moveUp, 1);
+                        } break;
+                        
+                        case 8: // NOTE: Centered
+                        {
+                        } break;
+                    }
+                } break;
+            }
+        }
+        else if (usagePage == 9)
+        {
+            if (elementValue == 0 || elementValue == 1)
+            {
+                switch (usage)
+                {
+                    case 1: // NOTE: X Button
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.actionLeft, (b32)elementValue);
+                    } break;
+                    
+                    case 2: // NOTE: A Button
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.actionDown, (b32)elementValue);
+                    } break;
+                    
+                    case 3: // NOTE: B Button
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.actionRight, (b32)elementValue);
+                    } break;
+                    
+                    case 4: // NOTE: Y Button
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.actionUp, (b32)elementValue);
+                    } break;
+                    
+                    case 9: // NOTE: Back Button
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.back, (b32)elementValue);
+                    } break;
+                    
+                    case 10: // NOTE: Start Button
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.start, (b32)elementValue);
+                    } break;
+                    
+                    case 11: // NOTE: Run
+                    {
+                        MacProcessHIDDigitalButton(&globalGamepadController.run, (b32)elementValue);
+                        printf("Run: %d\n", globalGamepadController.run.endedDown);
+                    }
+                }
+            }
+        }
+    }
+    else
+    {
+        // NOTE(yuval): Might cause an access violation when using a PS3 controller
+    }
+}
+
 internal void
 MacHIDAdded(void* context, IOReturn result,
             void* sender, IOHIDDeviceRef device)
@@ -335,7 +539,13 @@ MacHIDAdded(void* context, IOReturn result,
     }
     
     // TODO(yuval): @Replace with LogDebug
-    printf("Gamepad was detected: %s %s\n", manufacturer, product);
+    printf("Gamepad was detected: %s - %s\n", manufacturer, product);
+    
+    IOHIDDeviceRegisterInputValueCallback(device, MacHIDAction, 0);
+    
+    GameController zeroController = { };
+    globalGamepadController = zeroController;
+    globalGamepadController.isConnected = true;
 }
 
 internal void
@@ -343,6 +553,7 @@ MacHIDRemoved(void* context, IOReturn result,
               void* sender, IOHIDDeviceRef device)
 {
     printf("Gamepad was unplugged\n");
+    globalGamepadController.isConnected = false;
 }
 
 internal void
@@ -745,6 +956,8 @@ main(int argc, const char* argv[])
         
         mach_timebase_info(&globalTimebaseInfo);
         
+        MacSetupGamepad();
+        
         const s32 RENDER_WIDTH = 960;
         const s32 RENDER_HEIGHT = 540;
         
@@ -963,6 +1176,45 @@ main(int argc, const char* argv[])
                 
                 if (!globalPause)
                 {
+                    // TODO(yuval): Add support for multiple controllers
+                    GameController* gamepadController = &newInput->controllers[1];
+                    *gamepadController = zeroController;
+                    
+                    gamepadController->isConnected = globalGamepadController.isConnected;
+                    gamepadController->isAnalog = oldInput->controllers[1].isAnalog;
+                    gamepadController->stickAverageX = globalGamepadController.stickAverageX;
+                    gamepadController->stickAverageY = globalGamepadController.stickAverageY;
+                    
+                    for (u32 buttonIndex = 0;
+                         buttonIndex < ArrayCount(gamepadController->buttons);
+                         ++buttonIndex)
+                    {
+                        gamepadController->buttons[buttonIndex] =
+                            globalGamepadController.buttons[buttonIndex];
+                        
+                    }
+                    
+                    if (gamepadController->stickAverageX != 0.0f ||
+                        gamepadController->stickAverageY != 0.0f)
+                    {
+                        gamepadController->isAnalog = true;
+                    }
+                    
+                    if (gamepadController->moveUp.endedDown ||
+                        gamepadController->moveDown.endedDown ||
+                        gamepadController->moveLeft.endedDown ||
+                        gamepadController->moveRight.endedDown)
+                    {
+                        gamepadController->isAnalog = false;
+                    }
+                    
+                    printf("Is Connected: %d\n", gamepadController->isAnalog);
+                    printf("Is Analog: %d\n", gamepadController->isAnalog);
+                    printf("Move Right: %d\n", gamepadController->moveRight.endedDown);
+                    printf("Move Left: %d\n", gamepadController->moveLeft.endedDown);
+                    printf("Move Up: %d\n", gamepadController->moveUp.endedDown);
+                    printf("Move Down: %d\n\n", gamepadController->moveDown.endedDown);
+                    
                     [globalGLContext makeCurrentContext];
                     
                     newInput->dtForFrame = targetSecondsPerFrame;

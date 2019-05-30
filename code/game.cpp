@@ -276,6 +276,39 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             if (controller->isAnalog)
             {
                 // TODO(yuval, eran): Analog controller tuning
+                f32 dPlayerX = controller->stickAverageX;
+                f32 dPlayerY = controller->stickAverageY;
+                
+                if (controller->run.endedDown)
+                {
+                    dPlayerX *= 20.0f;
+                    dPlayerY *= 20.0f;
+                }
+                else
+                {
+                    dPlayerX *= 3.0f;
+                    dPlayerY *= 3.0f;
+                }
+                
+                WorldPosition newPlayerP = gameState->playerP;
+                newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
+                newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
+                newPlayerP = RecanonicalizePosition(&world, newPlayerP);
+                
+                WorldPosition playerLeft = newPlayerP;
+                playerLeft.tileRelX -= 0.5f * playerWidth;
+                playerLeft = RecanonicalizePosition(&world, playerLeft);
+                
+                WorldPosition playerRight = newPlayerP;
+                playerRight.tileRelX += 0.5f * playerWidth;
+                playerRight = RecanonicalizePosition(&world, playerRight);
+                
+                if (IsWorldPointEmpty(&world, newPlayerP) &&
+                    IsWorldPointEmpty(&world, playerLeft) &&
+                    IsWorldPointEmpty(&world, playerRight))
+                {
+                    gameState->playerP = newPlayerP;
+                }
             }
             else
             {
