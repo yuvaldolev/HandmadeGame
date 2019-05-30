@@ -8,73 +8,20 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
-inline s32
-RoundF32ToS32(f32 value)
-{
-    s32 result = (s32)(value + 0.5f);
-    // TODO(yuval & eran): @Add intrinsics
-    return result;
-}
-
-inline u32
-RoundF32ToU32(f32 value)
-{
-    u32 result = (u32)(value + 0.5f);
-    // TODO(yuval & eran): @Add intrinsics
-    return result;
-}
-
-inline s32
-FloorF32ToS32(f32 value)
-{
-    // TODO(yuval, eran): Implement floorf function ourselves
-    s32 result = (s32)floorf(value);
-    return result;
-}
-
-internal u32
-GetTileValueUnchecked(World* world, TileMap* tileMap, s32 tileX, s32 tileY)
-{
-    u32 tileValue = tileMap->tiles[tileY * world->tileCountX + tileX];
-    return tileValue;
-}
-
-internal TileMap*
-GetTileMap(World* world, s32 tileMapX, s32 tileMapY)
-{
-    TileMap* tileMap = 0;
-    
-    if ((tileMapX >= 0 && tileMapX < world->tileMapCountX) &&
-        (tileMapY >= 0 && tileMapY < world->tileMapCountY))
-    {
-        tileMap = &world->tileMaps[tileMapY * world->tileMapCountX +
-                tileMapX];
-    }
-    
-    return tileMap;
-}
-
 inline void
-RecanonicalizeCoord(World* world, s32 tileCount, s32* tileMap, s32* tile, f32* tileRel)
+RecanonicalizeCoord(World* world, u32* tile, f32* tileRel)
 {
+    // NOTE: The world is assumed to be toroidal, if you step off
+    // one end you come back on the other!
+    
     s32 offset = FloorF32ToS32(*tileRel / world->tileSideInMeters);
     *tile += offset;
     *tileRel -= offset * world->tileSideInMeters;
     
     Assert(*tileRel >= 0);
-    Assert(*tileRel < world->tileSideInPixels);
-    
-    if (*tile < 0)
-    {
-        *tile = tileCount + *tile;
-        --(*tileMap);
-    }
-    
-    if (*tile >= tileCount)
-    {
-        *tile = *tile - tileCount;
-        ++(*tileMap);
-    }
+    // TODO(yuval, eran): @Fix floating point math so this can be
+    // only "less then" and not "less then or equals"
+    Assert(*tileRel <= world->tileSideInPixels);
 }
 
 internal WorldPosition
@@ -82,38 +29,79 @@ RecanonicalizePosition(World* world, WorldPosition pos)
 {
     WorldPosition result = pos;
     
-    RecanonicalizeCoord(world, world->tileCountX, &result.tileMapX, &result.tileX, &result.tileRelX);
-    RecanonicalizeCoord(world, world->tileCountY, &result.tileMapY, &result.tileY, &result.tileRelY);
+    RecanonicalizeCoord(world, &result.absTileX, &result.tileRelX);
+    RecanonicalizeCoord(world, &result.absTileY, &result.tileRelY);
     
     return result;
 }
 
-
-internal b32
-IsTileMapPointEmpty(World* world, TileMap* tileMap,
-                    s32 tileX, s32 tileY)
+internal u32
+GetTileValueUnchecked(World* world, TileChunk* tileChunk, u32 tileX, u32 tileY)
 {
-    b32 isEmpty = false;
+    Assert(tileChunk);
+    Assert(tileX < world->chunkDim);
+    Assert(tileY < world->chunkDim);
     
-    if (tileMap)
+    u32 tileValue = tileChunk->tiles[tileY * world->chunkDim + tileX];
+    return tileValue;
+}
+
+internal TileChunk*
+GetTileChunk(World* world, s32 tileChunkX, s32 tileChunkY)
+{
+    TileChunk* tileChunk = 0;
+    
+    if ((tileChunkX >= 0 && tileChunkX < world->tileChunkCountX) &&
+        (tileChunkY >= 0 && tileChunkY < world->tileChunkCountY))
     {
-        if (tileX >= 0 && tileX < world->tileCountX &&
-            tileY >= 0 && tileY < world->tileCountY)
-        {
-            u32 tileValue = GetTileValueUnchecked(world, tileMap,
-                                                  tileX, tileY);
-            isEmpty = (tileValue == 0);
-        }
+        tileChunk = &world->tileChunks[tileChunkY * world->tileChunkCountX +
+                tileChunkX];
     }
     
-    return isEmpty;
+    return tileChunk;
+}
+
+inline TileChunkPosition
+GetChunkPositionFor(World* world, u32 absTileX, u32 absTileY)
+{
+    TileChunkPosition result;
+    
+    result.tileChunkX = absTileX >> world->chunkShift;
+    result.tileChunkY = absTileY >> world->chunkShift;
+    result.relTileX = absTileX & world->chunkMask;
+    result.relTileY = absTileY & world->chunkMask;
+    
+    return result;
+}
+
+internal b32
+GetTileValue(World* world, TileChunk* tileChunk, u32 tileX, u32 tileY)
+{
+    u32 tileChunkValue = 0;
+    
+    if (tileChunk)
+    {
+        tileChunkValue = GetTileValueUnchecked(world, tileChunk, tileX, tileY);
+    }
+    
+    return tileChunkValue;
+}
+
+internal u32
+GetTileValue(World* world, u32 absTileX, u32 absTileY)
+{
+    TileChunkPosition chunkPos = GetChunkPositionFor(world, absTileX, absTileY);
+    TileChunk* tileChunk = GetTileChunk(world, chunkPos.tileChunkY, chunkPos.tileChunkX);
+    u32 tileChunkValue = GetTileValue(world, tileChunk, chunkPos.relTileX, chunkPos.relTileY);
+    
+    return tileChunkValue;
 }
 
 internal b32
 IsWorldPointEmpty(World* world, WorldPosition pos)
 {
-    TileMap* tileMap = GetTileMap(world, pos.tileMapX, pos.tileMapY);
-    b32 isEmpty = IsTileMapPointEmpty(world, tileMap, pos.tileX, pos.tileY);
+    u32 tileChunkValue = GetTileValue(world, pos.absTileX, pos.absTileY);
+    b32 isEmpty = (tileChunkValue == 0);
     
     return isEmpty;
 }
@@ -176,7 +164,7 @@ GameOutputSound(GameState* gameState, GameSoundOutputBuffer* buffer, const s32 t
     
     s16* sampleOut = (s16*)buffer->samples;
     
-    for (s32 sampleIndex = 0;
+    for (u32 sampleIndex = 0;
          sampleIndex < buffer->sampleCount;
          ++sampleIndex)
     {
@@ -221,99 +209,63 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
         
-        gameState->playerP.tileMapX = 0;
-        gameState->playerP.tileMapY = 0;
-        gameState->playerP.tileX = 3;
-        gameState->playerP.tileY = 3;
+        gameState->playerP.absTileX = 3;
+        gameState->playerP.absTileY = 3;
         gameState->playerP.tileRelX = 5.0f;
         gameState->playerP.tileRelY = 5.0f;
         
         memory->isInitialized = true;
     }
     
-#define TILE_MAP_COUNT_X 17
-#define TILE_MAP_COUNT_Y 9
+#define TILE_CHUNK_DIM 256
+    
+    u32 tempTiles[TILE_CHUNK_DIM][TILE_CHUNK_DIM] = {
+        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
+        
+        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
+        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
+    };
     
     World world;
+    
+    // NOTE: This is set to be using 256x256 tile chunks
+    world.chunkShift = 8;
+    world.chunkMask = (1 << world.chunkShift) - 1;
+    world.chunkDim = TILE_CHUNK_DIM;
+    
+    world.tileChunkCountX = 1;
+    world.tileChunkCountY = 1;
+    
+    TileChunk tileChunk;
+    tileChunk.tiles = (u32*)tempTiles;
+    world.tileChunks = &tileChunk;
     
     world.tileSideInMeters = 1.4f;
     world.tileSideInPixels = 60;
     world.metersToPixels = (f32)world.tileSideInPixels / world.tileSideInMeters;
     
-    world.tileMapCountX = 2;
-    world.tileMapCountY = 2;
-    
-    world.tileCountX = TILE_MAP_COUNT_X;
-    world.tileCountY = TILE_MAP_COUNT_Y;
-    
-    world.upperLeftX = -(f32)world.tileSideInPixels / 2;
-    world.upperLeftY = 0;
-    
     f32 playerHeight = 1.4f;
     f32 playerWidth = playerHeight * 0.75f;
     
-    u32 tiles00[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
-    };
+    f32 lowerLeftX = -(f32)world.tileSideInPixels / 2;
+    f32 lowerLeftY = (f32)offscreenBuffer->height;
     
-    u32 tiles01[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 }
-    };
-    
-    u32 tiles10[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
-        
-    };
-    
-    u32 tiles11[TILE_MAP_COUNT_Y][TILE_MAP_COUNT_X] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
-    };
-    
-    TileMap tileMaps[2][2];
-    
-    tileMaps[0][0].tiles = (u32*)tiles00;
-    tileMaps[0][1].tiles = (u32*)tiles01;
-    tileMaps[1][0].tiles = (u32*)tiles10;
-    tileMaps[1][1].tiles = (u32*)tiles11;
-    
-    world.tileMaps = (TileMap*)tileMaps;
-    
-    TileMap* tileMap = GetTileMap(&world, gameState->playerP.tileMapX,
-                                  gameState->playerP.tileMapY);
-    
-    for (s32 controllerIndex = 0;
+    for (u32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
          ++controllerIndex)
     {
@@ -335,12 +287,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 
                 if (controller->moveUp.endedDown)
                 {
-                    dPlayerY = -1.0f;
+                    dPlayerY = 1.0f;
                 }
                 
                 if (controller->moveDown.endedDown)
                 {
-                    dPlayerY = 1.0f;
+                    dPlayerY = -1.0f;
                 }
                 
                 if (controller->moveLeft.endedDown)
@@ -387,11 +339,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
     
-    for (s32 row = 0; row < world.tileCountY; ++row)
+    DrawRectangle(offscreenBuffer, 0.0f, 0.0f,
+                  (f32)offscreenBuffer->width, (f32)offscreenBuffer->height,
+                  1.0f, 0.0f, 0.0f);
+    
+    f32 centerX = (f32)offscreenBuffer->width / 2.0f;
+    f32 centerY  = (f32)offscreenBuffer->height / 2.0f;
+    
+    for (s32 relRow = -10; relRow < 10; ++relRow)
     {
-        for (s32 column = 0; column < world.tileCountX; ++column)
+        for (s32 relColumn = -20; relColumn < 20; ++relColumn)
         {
-            u32 tileID = GetTileValueUnchecked(&world, tileMap, column, row);
+            u32 column = gameState->playerP.absTileX + relColumn;
+            u32 row =  gameState->playerP.absTileY + relRow;
+            u32 tileID = GetTileValue(&world, column, row);
+            
             f32 tileColor = 0.5f;
             
             if (tileID == 1)
@@ -399,19 +361,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 tileColor = 1.0f;
             }
             
-            if ((column == gameState->playerP.tileX) &&
-                (row == gameState->playerP.tileY))
+            if ((column == gameState->playerP.absTileX) &&
+                (row == gameState->playerP.absTileY))
             {
                 tileColor = 0.0f;
             }
             
-            f32 minX = (world.upperLeftX + (f32)(column * world.tileSideInPixels));
-            f32 minY = (world.upperLeftY + (f32)(row * world.tileSideInPixels));
+            f32 minX = centerX - gameState->playerP.tileRelX * world.metersToPixels +
+                (f32)(relColumn * world.tileSideInPixels);
+            f32 minY = centerY + gameState->playerP.tileRelY * world.metersToPixels -
+                (f32)(relRow * world.tileSideInPixels);
             f32 maxX = (f32)(minX + world.tileSideInPixels);
-            f32 maxY = (f32)(minY + world.tileSideInPixels);
+            f32 maxY = (f32)(minY - world.tileSideInPixels);
             
             DrawRectangle(offscreenBuffer,
-                          minX, minY, maxX, maxY,
+                          minX, maxY, maxX, minY,
                           tileColor, tileColor, tileColor);
         }
     }
@@ -420,12 +384,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerG = 1.0f;
     f32 playerB = 0.0f;
     
-    f32 playerLeft = world.upperLeftX + world.tileSideInPixels * gameState->playerP.tileX +
-        gameState->playerP.tileRelX * world.metersToPixels -
-        playerWidth * world.metersToPixels * 0.5f;
-    f32 playerTop = world.upperLeftY + world.tileSideInPixels * gameState->playerP.tileY +
-        gameState->playerP.tileRelY * world. metersToPixels -
-        playerHeight * world.metersToPixels;
+    f32 playerLeft = centerX - 0.5f * playerWidth * world.metersToPixels;
+    
+    f32 playerTop = centerY - playerHeight * world.metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,

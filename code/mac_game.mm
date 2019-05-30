@@ -204,7 +204,7 @@ MacFillSoundBuffer(MacSoundOutput* soundOutput)
 {
     s16* sourceSample = soundOutput->soundBuffer.samples;
     
-    for (s32 sampleIndex = 0;
+    for (u32 sampleIndex = 0;
          sampleIndex < soundOutput->soundBuffer.sampleCount;
          ++sampleIndex)
     {
@@ -830,7 +830,7 @@ main(int argc, const char* argv[])
                                         gameMemoryAllocationFlags,
                                         -1, 0);
         
-        for (s32 replayIndex = 0;
+        for (u32 replayIndex = 0;
              replayIndex < ArrayCount(macState.replayBuffers);
              ++replayIndex)
         {
@@ -951,7 +951,7 @@ main(int argc, const char* argv[])
                 newKeyboardController->isConnected = true;
                 newKeyboardController->isAnalog = false;
                 
-                for (s32 buttonIndex = 0;
+                for (u32 buttonIndex = 0;
                      buttonIndex < ArrayCount(newKeyboardController->buttons);
                      ++buttonIndex)
                 {
@@ -1062,7 +1062,7 @@ main(int argc, const char* argv[])
             }
             
 #if 1
-            for (s32 replayIndex = 0;
+            for (u32 replayIndex = 0;
                  replayIndex < ArrayCount(macState.replayBuffers);
                  ++replayIndex)
             {

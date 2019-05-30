@@ -1,6 +1,7 @@
 #if !defined(GAME_H)
 
 #include "game_types.h"
+#include "game_intrinsics.h"
 #include "game_shared.h"
 #include "game_memory.h"
 
@@ -83,7 +84,7 @@ struct GameSoundOutputBuffer
 {
     s16* samples;
     s32 samplesPerSecond;
-    s32 sampleCount;
+    u32 sampleCount;
 };
 
 struct GameButtonState
@@ -180,39 +181,44 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 /////////////////////////////
 //          Game           //
 /////////////////////////////
+struct TileChunkPosition
+{
+    u32 tileChunkX;
+    u32 tileChunkY;
+    
+    u32 relTileX;
+    u32 relTileY;
+};
+
 struct WorldPosition
 {
-    s32 tileMapX;
-    s32 tileMapY;
+    u32 absTileX;
+    u32 absTileY;
     
-    s32 tileX;
-    s32 tileY;
-    
+    // TODO(yuval, eran): Maybe @Rename these to offset X / Y
     f32 tileRelX;
     f32 tileRelY;
 };
 
-struct TileMap
+struct TileChunk
 {
     u32* tiles;
 };
 
 struct World
 {
+    u32 chunkShift;
+    u32 chunkMask;
+    u32 chunkDim;
+    
     f32 tileSideInMeters;
     s32 tileSideInPixels;
     f32 metersToPixels;
     
-    s32 tileMapCountX;
-    s32 tileMapCountY;
+    s32 tileChunkCountX;
+    s32 tileChunkCountY;
     
-    s32 tileCountX;
-    s32 tileCountY;
-    
-    f32 upperLeftX;
-    f32 upperLeftY;
-    
-    TileMap* tileMaps;
+    TileChunk* tileChunks;
 };
 
 struct GameState

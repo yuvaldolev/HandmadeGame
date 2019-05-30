@@ -154,12 +154,12 @@ CatStrings(char* dest, memory_index destCount,
     
     // TODO(yuval & eran): @Copy-and-paste
     // TODO(yuval & eran): @Incomplete use String struct
-    for (s32 index = 0; index < sourceACount; ++index)
+    for (u32 index = 0; index < sourceACount; ++index)
     {
         *destAt++ = sourceA[index];
     }
     
-    for (s32 index = 0; index < sourceBCount; ++index)
+    for (u32 index = 0; index < sourceBCount; ++index)
     {
         *destAt++ = sourceB[index];
     }
