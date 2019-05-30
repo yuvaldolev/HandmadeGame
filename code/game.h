@@ -261,6 +261,13 @@ struct World
     TileMap* tileMaps;
 };
 
+struct HeroBitmap
+{
+    LoadedBitmap head;
+    LoadedBitmap cape;
+    LoadedBitmap torso;
+};
+
 struct GameState
 {
     f32 playerX;
@@ -271,9 +278,9 @@ struct GameState
     
     LoadedBitmap backdrop;
     
-    LoadedBitmap heroHead;
-    LoadedBitmap heroCape;
-    LoadedBitmap heroTorso;
+    u32 facingDirection;
+    
+    HeroBitmap heroBitmap[4];
 };
 
 #define GAME_H
