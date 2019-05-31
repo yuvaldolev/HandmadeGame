@@ -1208,12 +1208,14 @@ main(int argc, const char* argv[])
                         gamepadController->isAnalog = false;
                     }
                     
+#if 0
                     printf("Is Connected: %d\n", gamepadController->isAnalog);
                     printf("Is Analog: %d\n", gamepadController->isAnalog);
                     printf("Move Right: %d\n", gamepadController->moveRight.endedDown);
                     printf("Move Left: %d\n", gamepadController->moveLeft.endedDown);
                     printf("Move Up: %d\n", gamepadController->moveUp.endedDown);
                     printf("Move Down: %d\n\n", gamepadController->moveDown.endedDown);
+#endif
                     
                     [globalGLContext makeCurrentContext];
                     

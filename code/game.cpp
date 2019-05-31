@@ -14,14 +14,14 @@ RecanonicalizeCoord(World* world, u32* tile, f32* tileRel)
     // NOTE: The world is assumed to be toroidal, if you step off
     // one end you come back on the other!
     
-    s32 offset = FloorF32ToS32(*tileRel / world->tileSideInMeters);
+    s32 offset = RoundF32ToS32(*tileRel / world->tileSideInMeters);
     *tile += offset;
     *tileRel -= offset * world->tileSideInMeters;
     
-    Assert(*tileRel >= 0);
+    Assert(*tileRel >= -0.5 * world->tileSideInPixels);
     // TODO(yuval, eran): @Fix floating point math so this can be
     // only "less then" and not "less then or equals"
-    Assert(*tileRel <= world->tileSideInPixels);
+    Assert(*tileRel <= 0.5 * world->tileSideInPixels);
 }
 
 internal WorldPosition
@@ -273,51 +273,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         if (controller->isConnected)
         {
+            // NOTE: Delta coordinates are meters per second
+            f32 dPlayerX = 0.0f;
+            f32 dPlayerY = 0.0f;
+            
             if (controller->isAnalog)
             {
                 // TODO(yuval, eran): Analog controller tuning
-                f32 dPlayerX = controller->stickAverageX;
-                f32 dPlayerY = controller->stickAverageY;
-                
-                if (controller->run.endedDown)
-                {
-                    dPlayerX *= 20.0f;
-                    dPlayerY *= 20.0f;
-                }
-                else
-                {
-                    dPlayerX *= 3.0f;
-                    dPlayerY *= 3.0f;
-                }
-                
-                WorldPosition newPlayerP = gameState->playerP;
-                newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
-                newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
-                newPlayerP = RecanonicalizePosition(&world, newPlayerP);
-                
-                WorldPosition playerLeft = newPlayerP;
-                playerLeft.tileRelX -= 0.5f * playerWidth;
-                playerLeft = RecanonicalizePosition(&world, playerLeft);
-                
-                WorldPosition playerRight = newPlayerP;
-                playerRight.tileRelX += 0.5f * playerWidth;
-                playerRight = RecanonicalizePosition(&world, playerRight);
-                
-                if (IsWorldPointEmpty(&world, newPlayerP) &&
-                    IsWorldPointEmpty(&world, playerLeft) &&
-                    IsWorldPointEmpty(&world, playerRight))
-                {
-                    gameState->playerP = newPlayerP;
-                }
+                dPlayerX = controller->stickAverageX;
+                dPlayerY = controller->stickAverageY;
             }
             else
             {
                 // TODO(yuval, eran): Digital controller tuning
-                
-                // NOTE: Delta coordinates are pixels per second and not pixels
-                f32 dPlayerX = 0.0f;
-                f32 dPlayerY = 0.0f;
-                
                 if (controller->moveUp.endedDown)
                 {
                     dPlayerY = 1.0f;
@@ -338,36 +306,36 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     dPlayerX = 1.0f;
                 }
                 
-                if (controller->run.endedDown)
-                {
-                    dPlayerX *= 6.0f;
-                    dPlayerY *= 6.0f;
-                }
-                else
-                {
-                    dPlayerX *= 3.0f;
-                    dPlayerY *= 3.0f;
-                }
-                
-                WorldPosition newPlayerP = gameState->playerP;
-                newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
-                newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
-                newPlayerP = RecanonicalizePosition(&world, newPlayerP);
-                
-                WorldPosition playerLeft = newPlayerP;
-                playerLeft.tileRelX -= 0.5f * playerWidth;
-                playerLeft = RecanonicalizePosition(&world, playerLeft);
-                
-                WorldPosition playerRight = newPlayerP;
-                playerRight.tileRelX += 0.5f * playerWidth;
-                playerRight = RecanonicalizePosition(&world, playerRight);
-                
-                if (IsWorldPointEmpty(&world, newPlayerP) &&
-                    IsWorldPointEmpty(&world, playerLeft) &&
-                    IsWorldPointEmpty(&world, playerRight))
-                {
-                    gameState->playerP = newPlayerP;
-                }
+            }
+            
+            f32 playerSpeed = 2.0f;
+            
+            if (controller->run.endedDown)
+            {
+                playerSpeed = 10.f;
+            }
+            
+            dPlayerX *= playerSpeed;
+            dPlayerY *= playerSpeed;
+            
+            WorldPosition newPlayerP = gameState->playerP;
+            newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
+            newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
+            newPlayerP = RecanonicalizePosition(&world, newPlayerP);
+            
+            WorldPosition playerLeft = newPlayerP;
+            playerLeft.tileRelX -= 0.5f * playerWidth;
+            playerLeft = RecanonicalizePosition(&world, playerLeft);
+            
+            WorldPosition playerRight = newPlayerP;
+            playerRight.tileRelX += 0.5f * playerWidth;
+            playerRight = RecanonicalizePosition(&world, playerRight);
+            
+            if (IsWorldPointEmpty(&world, newPlayerP) &&
+                IsWorldPointEmpty(&world, playerLeft) &&
+                IsWorldPointEmpty(&world, playerRight))
+            {
+                gameState->playerP = newPlayerP;
             }
         }
     }
@@ -376,8 +344,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   (f32)offscreenBuffer->width, (f32)offscreenBuffer->height,
                   1.0f, 0.0f, 0.0f);
     
-    f32 centerX = (f32)offscreenBuffer->width / 2.0f;
-    f32 centerY  = (f32)offscreenBuffer->height / 2.0f;
+    f32 screenCenterX = (f32)offscreenBuffer->width / 2.0f;
+    f32 screenCenterY  = (f32)offscreenBuffer->height / 2.0f;
     
     for (s32 relRow = -10; relRow < 10; ++relRow)
     {
@@ -400,15 +368,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 tileColor = 0.0f;
             }
             
-            f32 minX = centerX - gameState->playerP.tileRelX * world.metersToPixels +
+            f32 cenX = screenCenterX - gameState->playerP.tileRelX * world.metersToPixels +
                 (f32)(relColumn * world.tileSideInPixels);
-            f32 minY = centerY + gameState->playerP.tileRelY * world.metersToPixels -
+            f32 cenY = screenCenterY + gameState->playerP.tileRelY * world.metersToPixels -
                 (f32)(relRow * world.tileSideInPixels);
-            f32 maxX = (f32)(minX + world.tileSideInPixels);
-            f32 maxY = (f32)(minY - world.tileSideInPixels);
+            
+            f32 minX = cenX - 0.5f * world.tileSideInPixels;
+            f32 minY = cenY - 0.5f * world.tileSideInPixels;
+            f32 maxX = cenX + 0.5f * world.tileSideInPixels;
+            f32 maxY = cenY + 0.5f * world.tileSideInPixels;
             
             DrawRectangle(offscreenBuffer,
-                          minX, maxY, maxX, minY,
+                          minX, minY, maxX, maxY,
                           tileColor, tileColor, tileColor);
         }
     }
@@ -417,9 +388,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerG = 1.0f;
     f32 playerB = 0.0f;
     
-    f32 playerLeft = centerX - 0.5f * playerWidth * world.metersToPixels;
-    
-    f32 playerTop = centerY - playerHeight * world.metersToPixels;
+    f32 playerLeft = screenCenterX - 0.5f * playerWidth * world.metersToPixels;
+    f32 playerTop = screenCenterY - playerHeight * world.metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,

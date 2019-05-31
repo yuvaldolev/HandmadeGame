@@ -192,6 +192,9 @@ struct TileChunkPosition
 
 struct WorldPosition
 {
+    // NOTE: These are fixed point tile locations.
+    // The high bits are the tile chunk index,
+    // and the low bits are the tile index in the chunk. 
     u32 absTileX;
     u32 absTileY;
     

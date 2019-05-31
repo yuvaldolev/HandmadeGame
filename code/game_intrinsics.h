@@ -8,14 +8,14 @@
 inline s32
 RoundF32ToS32(f32 value)
 {
-    s32 result = (s32)(value + 0.5f);
+    s32 result = (s32)roundf(value);
     return result;
 }
 
 inline u32
 RoundF32ToU32(f32 value)
 {
-    u32 result = (u32)(value + 0.5f);
+    u32 result = (u32)roundf(value);
     return result;
 }
 
