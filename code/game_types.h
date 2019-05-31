@@ -1,4 +1,4 @@
-#if !defined(GAMETYPES_H)
+#if !defined(GAME_TYPES_H)
 
 #include <stdint.h>
 #include <stddef.h>
@@ -33,7 +33,7 @@
 #define Pi32 3.14159265359f
 
 #if GAME_SLOW
-#define Assert(expression) if (!(expression)) { *(int*)0 = 0; }
+#define Assert(expression) if (!(expression)) { *(volatile int*)0 = 0; }
 #else
 #define Assert(expression)
 #endif
@@ -109,6 +109,6 @@ StringLength(const char* string)
     return count;
 }
 
-#define GAMETYPES_H
+#define GAME_TYPES_H
 #endif
 

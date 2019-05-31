@@ -1,4 +1,4 @@
-#if !defined(GAMESHARED_H)
+#if !defined(GAME_SHARED_H)
 
 #include <stdarg.h>
 
@@ -41,7 +41,7 @@ Copy(void* destInit, const void* sourceInit, memory_index size)
     
     if (destInit && sourceInit)
     {
-        u8* source = (u8*)sourceInit;
+        const u8* source = (const u8*)sourceInit;
         u8* dest = (u8*)destInit;
         
         while (size--)
@@ -144,7 +144,7 @@ WrapZ(char* z)
     return str;
 }
 
-void
+internal void
 CatStrings(char* dest, memory_index destCount,
            const char* sourceA, memory_index sourceACount,
            const char* sourceB, memory_index sourceBCount)
@@ -154,12 +154,12 @@ CatStrings(char* dest, memory_index destCount,
     
     // TODO(yuval & eran): @Copy-and-paste
     // TODO(yuval & eran): @Incomplete use String struct
-    for (s32 index = 0; index < sourceACount; ++index)
+    for (u32 index = 0; index < sourceACount; ++index)
     {
         *destAt++ = sourceA[index];
     }
     
-    for (s32 index = 0; index < sourceBCount; ++index)
+    for (u32 index = 0; index < sourceBCount; ++index)
     {
         *destAt++ = sourceB[index];
     }
@@ -307,7 +307,7 @@ F64ToASCII(FormatDest* dest, f64 value, u32 precision)
          precisionIndex < precision;
          precisionIndex++)
     {
-        value *= 10.0f;
+        value *= 10.0;
         
         u32 integer = (u32)value;
         OutChar(dest, globalDecChars[integer]);
@@ -401,7 +401,7 @@ FormatStringList(char* destInit, umm destSize,
                 
                 // NOTE(yuval): Precision Handling
                 b32 precisionSpecified = false;
-                s32 precision = 0;
+                u32 precision = 0;
                 
                 if (*formatAt == '.')
                 {
@@ -409,13 +409,13 @@ FormatStringList(char* destInit, umm destSize,
                     
                     if (*formatAt == '*')
                     {
-                        precision = va_arg(argList, s32);
+                        precision = va_arg(argList, u32);
                         precisionSpecified = true;
                         ++formatAt;
                     }
                     else if ((*formatAt >= '0') && (*formatAt <= '9'))
                     {
-                        precision = S32FromZInternal(&formatAt);
+                        precision = (u32)S32FromZInternal(&formatAt);
                         precisionSpecified = true;
                     }
                     else
@@ -441,7 +441,7 @@ FormatStringList(char* destInit, umm destSize,
                 char tempBuffer[64];
                 char* temp = tempBuffer;
                 FormatDest tempDest = { temp, ArrayCount(tempBuffer) };
-                char* prefix = "";
+                const char* prefix = "";
                 b32 isFloat = false;
                 
                 switch (*formatAt)
@@ -680,7 +680,7 @@ FormatStringList(char* destInit, umm destSize,
 }
 
 internal umm
-FormatString(char* dest, umm destSize, char* format, ...)
+FormatString(char* dest, umm destSize, const char* format, ...)
 {
     va_list argList;
     
@@ -691,6 +691,6 @@ FormatString(char* dest, umm destSize, char* format, ...)
     return result;
 }
 
-#define GAMESHARED_H
+#define GAME_SHARED_H
 #endif
 

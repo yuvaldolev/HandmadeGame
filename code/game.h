@@ -1,6 +1,7 @@
 #if !defined(GAME_H)
 
 #include "game_types.h"
+#include "game_intrinsics.h"
 #include "game_shared.h"
 #include "game_memory.h"
 
@@ -83,7 +84,7 @@ struct GameSoundOutputBuffer
 {
     s16* samples;
     s32 samplesPerSecond;
-    s32 sampleCount;
+    u32 sampleCount;
 };
 
 struct GameButtonState
@@ -102,7 +103,7 @@ struct GameController
     
     union
     {
-        GameButtonState buttons[12];
+        GameButtonState buttons[13];
         
         struct
         {
@@ -110,6 +111,8 @@ struct GameController
             GameButtonState moveDown;
             GameButtonState moveLeft;
             GameButtonState moveRight;
+            
+            GameButtonState run;
             
             GameButtonState actionUp;
             GameButtonState actionDown;
@@ -178,7 +181,6 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 /////////////////////////////
 //          Game           //
 /////////////////////////////
-
 #pragma pack(push, 1)
 struct BitmapHeader
 {
@@ -205,38 +207,6 @@ struct BitmapHeader
 };
 #pragma pack(pop)
 
-struct BitScanResult
-{
-    s32 index;
-    b32 found;
-};
-
-struct CanonicalPosition
-{
-    s32 tileMapX;
-    s32 tileMapY;
-    
-    s32 tileX;
-    s32 tileY;
-    
-    f32 X;
-    f32 Y;
-};
-
-struct RawPosition
-{
-    s32 tileMapX;
-    s32 tileMapY;
-    
-    f32 X;
-    f32 Y;
-};
-
-struct TileMap
-{
-    u32* tiles;
-};
-
 struct LoadedBitmap
 {
     u32* pixels;
@@ -244,21 +214,53 @@ struct LoadedBitmap
     s32 height;
 };
 
+struct BitScanResult
+{
+    s32 index;
+    b32 found;
+};
+
+struct TileChunkPosition
+{
+    u32 tileChunkX;
+    u32 tileChunkY;
+    
+    u32 relTileX;
+    u32 relTileY;
+};
+
+struct WorldPosition
+{
+    // NOTE: These are fixed point tile locations.
+    // The high bits are the tile chunk index,
+    // and the low bits are the tile index in the chunk. 
+    u32 absTileX;
+    u32 absTileY;
+    
+    // TODO(yuval, eran): Maybe @Rename these to offset X / Y
+    f32 tileRelX;
+    f32 tileRelY;
+};
+
+struct TileChunk
+{
+    u32* tiles;
+};
+
 struct World
 {
-    s32 tileMapCountX;
-    s32 tileMapCountY;
+    u32 chunkShift;
+    u32 chunkMask;
+    u32 chunkDim;
     
-    s32 tileCountX;
-    s32 tileCountY;
+    f32 tileSideInMeters;
+    s32 tileSideInPixels;
+    f32 metersToPixels;
     
-    f32 tileWidth;
-    f32 tileHeight;
+    s32 tileChunkCountX;
+    s32 tileChunkCountY;
     
-    f32 upperLeftX;
-    f32 upperLeftY;
-    
-    TileMap* tileMaps;
+    TileChunk* tileChunks;
 };
 
 struct HeroBitmap
@@ -270,16 +272,11 @@ struct HeroBitmap
 
 struct GameState
 {
-    f32 playerX;
-    f32 playerY;
-    
-    s32 playerTileMapX;
-    s32 playerTileMapY;
+    WorldPosition playerP;
     
     LoadedBitmap backdrop;
     
     u32 facingDirection;
-    
     HeroBitmap heroBitmap[4];
 };
 
