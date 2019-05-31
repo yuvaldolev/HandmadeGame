@@ -74,6 +74,31 @@ global_variable GameController globalGamepadController;
 }
 @end
 
+PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
+{
+    NSCalendar* gregorian = [[NSCalendar alloc]
+            initWithCalendarIdentifier:NSGregorianCalendar];
+    
+    NSDate* now = [NSDate date];
+    u32 unitFlags = (NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay |
+                     NSCalendarUnitHour | NSCalendarUnitMinute | NSCalendarUnitSecond |
+                     NSCalendarUnitNanosecond);
+    
+    NSDateComponents* dateComponents = [gregorian components:unitFlags fromDate:now];
+    
+    PlatformDateTime result;
+    result.day = (u16)[dateComponents day];
+    result.month = (u16)[dateComponents month];
+    result.year = (u16)[dateComponents year];
+    result.hour = (u16)[dateComponents hour];
+    result.minute = (u16)[dateComponents minute];
+    result.second = (u16)[dateComponents second];
+    result.milliseconds = (u16)(1.0E-6 * [dateComponents nanosecond]);
+    
+    return result;
+    
+}
+
 internal void
 MacBuildAppPathFileName(char* dest, memory_index destCount,
                         MacState* state, const char* fileName)
@@ -350,7 +375,7 @@ MacHIDAction(void* context, IOReturn result,
         u32 usagePage = IOHIDElementGetUsagePage(elementRef);
         u32 usage = IOHIDElementGetUsage(elementRef);
         CFIndex logicalMin = IOHIDElementGetLogicalMin(elementRef);
-		CFIndex logicalMax = IOHIDElementGetLogicalMax(elementRef);
+        CFIndex logicalMax = IOHIDElementGetLogicalMax(elementRef);
         
         CFIndex elementValue = IOHIDValueGetIntegerValue(value);
         

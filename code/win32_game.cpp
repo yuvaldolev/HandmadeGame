@@ -79,16 +79,16 @@ PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
     SYSTEMTIME localTime;
     GetLocalTime(&localTime);
     
-    PlatformDateTime dateTime;
-    dateTime.day = localTime.wDay;
-    dateTime.month = localTime.wMonth;
-    dateTime.year = localTime.wYear;
-    dateTime.hour = localTime.wHour;
-    dateTime.minute = localTime.wMinute;
-    dateTime.second = localTime.wSecond;
-    dateTime.milliseconds = localTime.wMilliseconds;
+    PlatformDateTime result;
+    result.day = localTime.wDay;
+    result.month = localTime.wMonth;
+    result.year = localTime.wYear;
+    result.hour = localTime.wHour;
+    result.minute = localTime.wMinute;
+    result.second = localTime.wSecond;
+    result.milliseconds = localTime.wMilliseconds;
     
-    return dateTime;
+    return result;
 }
 
 // TODO(yuval & eran): Temporary!

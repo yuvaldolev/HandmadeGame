@@ -8,30 +8,10 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
-inline BitScanResult
-FindLeastSignificantSetBit(u32 value)
-{
-    BitScanResult result = { };
-#if COMPILER_MSVC
-    result.found = _BitScanForward((unsigned long*)&result.index, value);
-#else
-    for (u32 index = 0; index < 32; ++index)
-    {
-        if (value & (1 << index))
-        {
-            result.index = index;
-            result.found = true;
-            break;
-        }
-    }
-#endif
-    return result;
-}
-
 internal LoadedBitmap
 DEBUGLoadBMP(ThreadContext* thread,
              DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
-             char* fileName)
+             const char* fileName)
 {
     LoadedBitmap result = { };
     DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
@@ -229,7 +209,7 @@ GetTileValueUnchecked(World* world, TileChunk* tileChunk, u32 tileX, u32 tileY)
     Assert(tileY < world->chunkDim);
     
     u32 tileValue = tileChunk->tiles[tileY * world->chunkDim + tileX];
-
+    
     return tileValue;
 }
 
@@ -382,7 +362,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
+        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,s  0,  0, 0, 0, 0,  1, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
         { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
@@ -499,11 +479,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
     }
-
-    TEMPDrawBitMap(offscreenBuffer, &gameState->backdrop, 0, 0);
     
-    TileMap* tileMap = GetTileMap(&world, gameState->playerTileMapX,
-                                  gameState->playerTileMapY);
+    TEMPDrawBitMap(offscreenBuffer, &gameState->backdrop, 0, 0);
     
     f32 screenCenterX = (f32)offscreenBuffer->width / 2.0f;
     f32 screenCenterY  = (f32)offscreenBuffer->height / 2.0f;
@@ -518,31 +495,31 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             
             s32 tileValue = tileID;
             f32 tileColor = 0.5f;
-          
+            
             if (tileID == 1)
             {
                 tileColor = 1.0f;
             }
-          
+            
             if ((column == gameState->playerP.absTileX) &&
                 (row == gameState->playerP.absTileY))
             {
                 tileValue = 2;
                 tileColor = 0.0f;
             }
-
+            
             if (tileValue != 0)
             {
                 f32 cenX = screenCenterX - gameState->playerP.tileRelX * world.metersToPixels +
                     (f32)(relColumn * world.tileSideInPixels);
                 f32 cenY = screenCenterY + gameState->playerP.tileRelY * world.metersToPixels -
                     (f32)(relRow * world.tileSideInPixels);
-
+                
                 f32 minX = cenX - 0.5f * world.tileSideInPixels;
                 f32 minY = cenY - 0.5f * world.tileSideInPixels;
                 f32 maxX = cenX + 0.5f * world.tileSideInPixels;
                 f32 maxY = cenY + 0.5f * world.tileSideInPixels;
-
+                
                 DrawRectangle(offscreenBuffer,
                               minX, minY, maxX, maxY,
                               tileColor, tileColor, tileColor);
@@ -563,7 +540,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   playerLeft + playerWidth * world.metersToPixels,
                   playerTop + playerHeight * world.metersToPixels,
                   playerR, playerG, playerB);
-  
+    
     HeroBitmap* heroBitmap = &gameState->heroBitmap[gameState->facingDirection];
     
     TEMPDrawBitMap(offscreenBuffer, &heroBitmap->head, playerLeft, playerTop);

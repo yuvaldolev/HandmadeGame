@@ -214,12 +214,6 @@ struct LoadedBitmap
     s32 height;
 };
 
-struct BitScanResult
-{
-    s32 index;
-    b32 found;
-};
-
 struct TileChunkPosition
 {
     u32 tileChunkX;
