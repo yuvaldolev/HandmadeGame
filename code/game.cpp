@@ -15,7 +15,7 @@ FindLeastSignificantSetBit(u32 value)
 #if COMPILER_MSVC
     result.found = _BitScanForward((unsigned long*)&result.index, value);
 #else
-    for (u32 index = 0; index < 32; index++)
+    for (u32 index = 0; index < 32; ++index)
     {
         if (value & (1 << index))
         {
@@ -47,6 +47,7 @@ DEBUGLoadBMP(ThreadContext* thread,
         u32 blueMask = header->blueMask;
         u32 alphaMask = ~(header->blueMask | header->redMask | header->greenMask);
         
+        
         BitScanResult redShift = FindLeastSignificantSetBit(redMask);
         BitScanResult greenShift = FindLeastSignificantSetBit(greenMask);
         BitScanResult blueShift = FindLeastSignificantSetBit(blueMask);
@@ -60,19 +61,18 @@ DEBUGLoadBMP(ThreadContext* thread,
         
         u32* sourceDest = result.pixels;
         
-        for (s32 Y = 0; Y < header->height; Y++)
+        for (s32 Y = 0; Y < header->height; ++Y)
         {
-            for (s32 X = 0; X < header->width; X++)
+            for (s32 X = 0; X < header->width; ++X)
             {
                 u32 c = *sourceDest;
-                *sourceDest++ = (((( c >> alphaShift.index) & 0xFF) << 24) |
-                                 ((( c >> redShift.index) & 0xFF) << 16) |
-                                 ((( c >> greenShift.index) & 0xFF) << 8) |
-                                 ((( c >> blueShift.index) & 0xFF) << 0));
+                *sourceDest++ = ((((c >> alphaShift.index) & 0xFF) << 24) |
+                                 (((c >> redShift.index) & 0xFF) << 16) |
+                                 (((c >> greenShift.index) & 0xFF) << 8) |
+                                 (((c >> blueShift.index) & 0xFF) << 0));
             }
         }
     }
-    
     return result;
 }
 
@@ -133,12 +133,12 @@ TEMPDrawBitMap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 r
     u8* destRow = ((u8*)offscreenBuffer->memory + offscreenBuffer->bytesPerPixel * minX +
                    offscreenBuffer->pitch * minY);
     
-    for (s32 Y = minY; Y < maxY; Y++)
+    for (s32 Y = minY; Y < maxY; ++Y)
     {
         
         u32* dest = (u32 *)destRow;
         u32* source = sourceRow;
-        for (s32 X = minX; X < maxX; X++)
+        for (s32 X = minX; X < maxX; ++X)
         {
             f32 alpha = (f32)((*source >> 24) & 0xFF) /255.0f;
             f32 sourceR = (f32)((*source >> 16) & 0xFF);
@@ -165,7 +165,6 @@ TEMPDrawBitMap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 r
         destRow += offscreenBuffer->pitch;
         sourceRow -= bitmap->width;
     }
-    
 }
 
 internal void
