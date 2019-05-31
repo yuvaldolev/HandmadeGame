@@ -3,6 +3,29 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#if !defined(COMPILER_MSVC)
+#define COMPILER_MSVC 0
+#endif
+
+#if !defined(COMPILER_LLVM)
+#define COMPILER_LLVM 0
+#endif
+
+#if !COMPILER_LLVM && !COMPILER_MSVC
+#if _MSC_VER
+#undef COMPILER_MSVC
+#define COMPILER_MSVC 1
+#else
+#undef COMPILER_LLVM
+#define COMPILER_LLVM 1
+#endif
+#endif
+
+#if COMPILER_MSVC
+#include <intrin.h>
+#pragma intrinsic(_BitScanForward)
+#endif
+
 #define internal static
 #define global_variable static
 #define local_persist static
@@ -74,7 +97,7 @@ inline u32
 StringLength(const char* string)
 {
     u32 count = 0;
-
+    
     if (string)
     {
         while(*string++)
@@ -82,7 +105,7 @@ StringLength(const char* string)
             ++count;
         }
     }
-
+    
     return count;
 }
 

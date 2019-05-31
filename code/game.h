@@ -179,6 +179,38 @@ typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
 //          Game           //
 /////////////////////////////
 
+#pragma pack(push, 1)
+struct BitmapHeader
+{
+    u16 fileType;
+    u32 fileSize;
+    u16 reserved;
+    u16 reserved2;
+    u32 bitmapOffset;
+    u32 size;
+    s32 width;
+    s32 height;
+    u16 planes;
+    u16 bitsPerPixel;
+    u32 compression;
+    u32 sizeOfBitmap;
+    s32 horiziontalResolution;
+    s32 verticalResolution;
+    u32 colorUser;
+    u32 colorsImportant;
+    
+    u32 redMask;
+    u32 greenMask;
+    u32 blueMask;
+};
+#pragma pack(pop)
+
+struct BitScanResult
+{
+    s32 index;
+    b32 found;
+};
+
 struct CanonicalPosition
 {
     s32 tileMapX;
@@ -205,6 +237,13 @@ struct TileMap
     u32* tiles;
 };
 
+struct LoadedBitmap
+{
+    u32* pixels;
+    s32 width;
+    s32 height;
+};
+
 struct World
 {
     s32 tileMapCountX;
@@ -222,6 +261,13 @@ struct World
     TileMap* tileMaps;
 };
 
+struct HeroBitmap
+{
+    LoadedBitmap head;
+    LoadedBitmap cape;
+    LoadedBitmap torso;
+};
+
 struct GameState
 {
     f32 playerX;
@@ -229,8 +275,13 @@ struct GameState
     
     s32 playerTileMapX;
     s32 playerTileMapY;
+    
+    LoadedBitmap backdrop;
+    
+    u32 facingDirection;
+    
+    HeroBitmap heroBitmap[4];
 };
 
 #define GAME_H
 #endif
-

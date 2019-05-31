@@ -31,7 +31,9 @@
 *.out
 *.app
 
+# Temp Files
+*.DS_Store
+
 # Directories
 build/
-data/
 .vs/

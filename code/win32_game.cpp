@@ -291,6 +291,7 @@ Win32EndRecordingInput(Win32State* state)
     state->inputRecordingIndex = 0;
 }
 
+
 internal void
 Win32BeginInputPlayBack(Win32State* state, s32 inputPlayingIndex)
 {
@@ -1224,7 +1225,7 @@ WinMain(HINSTANCE instance,
                                           sizeof(replayBuffer->replayFileName),
                                           false, &win32State, replayIndex + 1);
                 
-                replayBuffer->fileHandle = CreateFileA(fileName, GENERIC_READ | GENERIC_WRITE,
+                replayBuffer->fileHandle = CreateFileA(replayBuffer->replayFileName, GENERIC_READ | GENERIC_WRITE,
                                                        0, 0, CREATE_ALWAYS, 0, 0);
                 
                 // TODO(yuval & eran): @Refactor lowhigh conversions to macros
@@ -1671,7 +1672,7 @@ WinMain(HINSTANCE instance,
                             
                             if (secondsElapsedForFrame > targetSecondsPerFrame)
                             {
-                                // Win32LogError("Sleep Missed Frame Rate Of %.2f\n", gameUpdateHz);
+                                Win32LogError("Sleep Missed Frame Rate Of %.2f\n", gameUpdateHz);
                             }
                             
                             while (secondsElapsedForFrame < targetSecondsPerFrame)
