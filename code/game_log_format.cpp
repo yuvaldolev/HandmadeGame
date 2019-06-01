@@ -364,7 +364,7 @@ LogFormatGetNextFormatter(const char** fmt)
     return formatter;
 }
 
-void
+internal void
 LogFormatSetPattern(MemoryArena* arena, const char* fmt)
 {
     if (fmt)
@@ -383,13 +383,13 @@ LogFormatSetPattern(MemoryArena* arena, const char* fmt)
     }
 }
 
-void
+internal void
 LogFormatClean()
 {
     // TODO(yuval & eran): Implement this
 }
 
-void
+internal void
 LogFormatMessage(LogMsg* msg)
 {
     LogFormatter* formatterAt = globalFirstFormatter;

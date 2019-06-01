@@ -98,11 +98,6 @@ PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
     return result;
 }
 
-PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsg)
-{
-    printf("%s", msg->formatted);
-}
-
 DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
 {
     if (memory)
@@ -809,7 +804,7 @@ MacResizeBackbuffer(MacOffscreenBuffer* buffer, s32 width, s32 height)
 }
 
 internal void
-MacProcessPendingMessages(MacState* state, GameController* keyboardController)
+MacProcessPendingMessages(NSWindow* window, MacState* state, GameController* keyboardController)
 {
     NSEvent* event;
     
@@ -836,6 +831,15 @@ MacProcessPendingMessages(MacState* state, GameController* keyboardController)
                 {
                     globalRunning = false;
                 }
+#if GAME_INTERNAL
+                else if (keyCode == kVK_F11 && optionKeyIsDown)
+                {
+                    if (isDown)
+                    {
+                        [window toggleFullScreen:nil];
+                    }
+                }
+#endif
                 else if (isRepeated == NO)
                 {
                     switch (keyCode)
@@ -973,7 +977,6 @@ MacUnloadGameCode(MacGameCode* gameCode)
     gameCode->isValid = false;
     gameCode->UpdateAndRender = 0;
     gameCode->GetSoundSamples = 0;
-    gameCode->Log = 0;
 }
 
 inline time_t
@@ -1004,19 +1007,15 @@ MacLoadGameCode(const char* sourceGameCodeDLLFullPath)
             dlsym(result.gameCodeDLL, "GameUpdateAndRender");
         result.GetSoundSamples = (GameGetSoundSamplesType*)
             dlsym(result.gameCodeDLL, "GameGetSoundSamples");
-        result.Log = (LogType*)
-            dlsym(result.gameCodeDLL, "Log");
         
         result.isValid = (result.UpdateAndRender &&
-                          result.GetSoundSamples &&
-                          result.Log);
+                          result.GetSoundSamples);
     }
     
     if (!result.isValid)
     {
         result.UpdateAndRender = 0;
         result.GetSoundSamples = 0;
-        result.Log = 0;
     }
     
     return result;
@@ -1104,6 +1103,14 @@ main(int argc, const char* argv[])
         [window setTitle:@"Handmade Game"];
         [window makeKeyAndOrderFront:nil];
         
+        // NOTE: If the game is running on a development machine than
+        // we should show the cursor for edittor debugging puposes
+#if GAME_INTERNAL
+#else
+        [window toggleFullScreen:nil];
+        CGDisplayHideCursor(kCGDirectMainDisplay);
+#endif
+        
         CGDirectDisplayID displayID = CGMainDisplayID();
         CGDisplayModeRef displayMode = CGDisplayCopyDisplayMode(displayID);
         f64 monitorRefreshRate = CGDisplayModeGetRefreshRate(displayMode);
@@ -1144,7 +1151,6 @@ main(int argc, const char* argv[])
         gameMemory.transientStorageSize = Gigabytes(1);
         
         gameMemory.PlatformGetDateTime = PlatformGetDateTime;
-        gameMemory.PlatformWriteLogMsg = PlatformWriteLogMsg;
         gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
         gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
         gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
@@ -1286,7 +1292,7 @@ main(int argc, const char* argv[])
                         oldKeyboardController->buttons[buttonIndex].endedDown;
                 }
                 
-                MacProcessPendingMessages(&macState, newKeyboardController);
+                MacProcessPendingMessages(window, &macState, newKeyboardController);
                 
                 if (!globalPause)
                 {

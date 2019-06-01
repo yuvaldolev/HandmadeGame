@@ -325,7 +325,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         (u8*)memory->permanentStorage + sizeof(GameState),
                         (u64)(memory->permanentStorageSize * 0.0001f));
         
-        LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
+        LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
         
         gameState->playerP.absTileX = 3;
         gameState->playerP.absTileY = 3;

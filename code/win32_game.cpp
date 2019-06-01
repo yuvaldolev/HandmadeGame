@@ -30,18 +30,6 @@
  */
 
 // TODO(yuval & eran): This is temporary!!! Remove this as soon as possible
-#define Win32LogInternal(level, format, ...) game.Log(level, \
-__FILE__, \
-__FUNCTION__, \
-__LINE__, \
-format, __VA_ARGS__)
-
-#define Win32LogDebug(format, ...) Win32LogInternal(LogLevelDebug, format, __VA_ARGS__)
-#define Win32LogInfo(format, ...) Win32LogInternal(LogLevelInfo, format, __VA_ARGS__)
-#define Win32LogWarn(format, ...) Win32LogInternal(LogLevelWarn, format, __VA_ARGS__)
-#define Win32LogError(format, ...) Win32LogInternal(LogLevelError, format, __VA_ARGS__)
-#define Win32LogFatal(format, ...) Win32LogInternal(LogLevelFatal, format, __VA_ARGS__)
-
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE* pState)
 typedef X_INPUT_GET_STATE(XInputGetStateType);
 
@@ -73,6 +61,8 @@ global_variable b32 globalPause;
 global_variable Win32Backbuffer globalBackbuffer;
 global_variable IDirectSoundBuffer* globalSecondaryBuffer;
 global_variable s64 globalPerfCountFrequency;
+global_variable b32 globalShowCursor;
+global_variable WINDOWPLACEMENT globalWindowPosition;
 
 PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
 {
@@ -91,52 +81,6 @@ PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
     return result;
 }
 
-// TODO(yuval & eran): Temporary!
-#if 0
-void
-PlatformWriteLogMsgInColor(LogMsg* msg)
-{
-    const WORD COLOR_CYAN = FOREGROUND_GREEN | FOREGROUND_BLUE;
-    const WORD COLOR_GREEN = FOREGROUND_GREEN;
-    const WORD COLOR_BOLD_YELLOW = FOREGROUND_RED | FOREGROUND_GREEN |
-        FOREGROUND_INTENSITY;
-    const WORD COLOR_BOLD_RED = FOREGROUND_RED | FOREGROUND_INTENSITY;
-    const WORD COLOR_WHITE_ON_RED = BACKGROUND_RED | FOREGROUND_RED |
-        FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-    
-    HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
-    
-    if (console)
-    {
-        CONSOLE_SCREEN_BUFFER_INFO origBufferInfo;
-        if (GetConsoleScreenBufferInfo(console, &origBufferInfo))
-        {
-            WORD attrib;
-            switch (msg->level)
-            {
-                case LogLevelDebug: { attrib = COLOR_CYAN; } break;
-                case LogLevelInfo: { attrib = COLOR_GREEN; } break;
-                case LogLevelWarn: { attrib = COLOR_BOLD_YELLOW; } break;
-                case LogLevelError: { attrib = COLOR_BOLD_RED; } break;
-                case LogLevelFatal: { attrib = COLOR_WHITE_ON_RED;} break;
-                default: { attrib = 0; } break;
-            }
-            
-            SetConsoleTextAttribute(console, attrib);
-            WriteConsoleA(console, msg->formatted,
-                          (DWORD)(msg->maxSize - msg->remainingFormattingSpace),
-                          0, 0);
-            SetConsoleTextAttribute(console, origBufferInfo.wAttributes);
-        }
-    }
-}
-#endif
-
-PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsg)
-{
-    OutputDebugStringA(msg->formatted);
-}
-
 DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
 {
     if (memory)
@@ -145,7 +89,6 @@ DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
     }
 }
 
-// TODO(yuval & eran): Renable Logging in DEBUG read & write
 DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
 {
     DEBUGReadFileResult result = { };
@@ -231,6 +174,39 @@ DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
     }
     
     return result;
+}
+
+intenral void
+Win32ToggleFullscreen(HWND window)
+{
+    DWORD style = GetWindowLongA(window, GWL_STYLE);
+    
+    if (style & WS_OVERLAPPEDWINDOW)
+    {
+        MONITORINFO monitorInfo = { sizeof(MONITORINFO) };
+        
+        if (GetWindowPlacement(window, &globalWindowPosition) &&
+            GetMonitorInfoA(MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY),
+                            &monitorInfo))
+        {
+            SetWindowLongA(window, GWL_STYLE, style & -WS_OVERLAPPEDWINDOW);
+            SetWindowPos(window, HWND_TOP,
+                         monitorInfo.rcMonitor.left,
+                         monitorInfo.rcMonitor.top,
+                         monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
+                         monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+                         SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        }
+    }
+    else
+    {
+        SetWindowLongA(window, GWL_STYLE, style | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(window, &globalWindowPosition);
+        SetWindowPos(window, HWND_TOP,
+                     0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE |
+                     SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
 }
 
 internal void
@@ -769,13 +745,27 @@ internal void
 Win32DisplayBackbufferInWindow(HDC deviceContext, Win32Backbuffer* buffer,
                                s32 windowWidth, s32 windowHeight)
 {
-    StretchDIBits(deviceContext,
-                  0, 0, buffer->width, buffer->height,//windowWidth, windowHeight,
-                  0, 0, buffer->width, buffer->height,
-                  buffer->memory,
-                  &buffer->info,
-                  DIB_RGB_COLORS,
-                  SRCCOPY);
+    if ((windowWidth == buffer->width * 2) &&
+        (windowHeight == buffer->height * 2))
+    {
+        StretchDIBits(deviceContext,
+                      0, 0, windowWidth, windowHeight,
+                      0, 0, buffer->width, buffer->height,
+                      buffer->memory,
+                      &buffer->info,
+                      DIB_RGB_COLORS,
+                      SRCCOPY);
+    }
+    else
+    {
+        StretchDIBits(deviceContext,
+                      0, 0, buffer->width, buffer->height,//windowWidth, windowHeight,
+                      0, 0, buffer->width, buffer->height,
+                      buffer->memory,
+                      &buffer->info,
+                      DIB_RGB_COLORS,
+                      SRCCOPY);
+    }
 }
 
 internal void
@@ -801,12 +791,24 @@ Win32ProcessPendingMessages(Win32State* state, GameController* keyboardControlle
                 bool wasDown = (message.lParam & (1 << 30)) != 0;
                 bool isDown = (message.lParam & (1 << 31)) == 0;
                 
-                b32 altIsDown = (message.lParam & (1 << 29));
+                b32 altKeyIsDown = (message.lParam & (1 << 29));
                 
-                if (keyCode == VK_F4 && altIsDown)
+                if (keyCode == VK_F4 && altKeyIsDown)
                 {
                     globalRunning = false;
                 }
+#if GAME_INTERNAL
+                else if (keyCode == VK_F11 && altKeyIsDown)
+                {
+                    if (isDown)
+                    {
+                        if (message.hwnd)
+                        {
+                            WinToggleFullscreen(message.hwnd);
+                        }
+                    }
+                }
+#endif
                 else if (wasDown != isDown)
                 {
                     switch (keyCode)
@@ -871,6 +873,11 @@ Win32ProcessPendingMessages(Win32State* state, GameController* keyboardControlle
                             Win32ProcessKeyboardMessage(&keyboardController->start, isDown);
                         } break;
                         
+                        case VK_SHIFT:
+                        {
+                            Win32ProcessKeyboardMessage(&keyboardController->run, isDown);
+                        } break;
+                        
 #if GAME_INTERNAL
                         case 'P':
                         {
@@ -931,6 +938,15 @@ Win32MainWindowCallback(HWND window, UINT message,
     {
         case WM_SIZE:
         {
+            
+        } break;
+        
+        case WM_SETCURSOR:
+        {
+            if (!globalShowCursor)
+            {
+                SetCursor(0);
+            }
         } break;
         
         case WM_DESTROY:
@@ -988,7 +1004,6 @@ Win32UnloadGameCode(Win32GameCode* gameCode)
     gameCode->isValid = false;
     gameCode->UpdateAndRender = 0;
     gameCode->GetSoundSamples = 0;
-    gameCode->Log = 0;
 }
 
 inline FILETIME
@@ -1038,15 +1053,13 @@ Win32LoadGameCode(const char* sourceGameCodeDLLFullPath,
             GetProcAddress(result.gameCodeDLL, "Log");
         
         result.isValid = (result.UpdateAndRender &&
-                          result.GetSoundSamples &&
-                          result.Log);
+                          result.GetSoundSamples);
     }
     
     if (!result.isValid)
     {
         result.UpdateAndRender = 0;
         result.GetSoundSamples = 0;
-        result.Log = 0;
     }
     
     return result;
@@ -1102,6 +1115,13 @@ WinMain(HINSTANCE instance,
     s32 renderHeight = 540;
     Win32ResizeDIBSection(&globalBackbuffer, renderWidth, renderHeight);
     
+#if GAME_INTERNAL
+    globalShowCursor = true;
+#else
+    globalShowCursor = false;
+    ToggleFullscreen();
+#endif
+    
     WNDCLASS windowClass = { };
     
     windowClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -1109,6 +1129,7 @@ WinMain(HINSTANCE instance,
     windowClass.hInstance = instance;
     // HICON     hIcon;
     windowClass.lpszClassName = "HandmadeGameWindowClass";
+    // windowClass.hCursor = LoadCursorA(instance, IDC_CROSS);
     
     if (RegisterClassA(&windowClass))
     {
@@ -1200,7 +1221,6 @@ WinMain(HINSTANCE instance,
             gameMemory.transientStorageSize = Gigabytes(1);
             
             gameMemory.PlatformGetDateTime = PlatformGetDateTime;
-            gameMemory.PlatformWriteLogMsg = PlatformWriteLogMsg;
             gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
             gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
             gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;

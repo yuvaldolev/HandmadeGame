@@ -40,10 +40,6 @@ struct PlatformDateTime
 #define PLATFORM_GET_DATE_TIME(name) PlatformDateTime name()
 typedef PLATFORM_GET_DATE_TIME(PlatformGetDateTimeType);
 
-// TODO(yuval & eran): Temporary!
-#define PLATFORM_WRITE_LOG_MSG(name) void name(struct LogMsg* msg)
-typedef PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsgType);
-
 #ifdef GAME_INTERNAL
 /*
 IMPORTANT(yuval):
@@ -71,6 +67,8 @@ typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
 #endif
 
 // NOTE(yuval): Services that the game provides to the platform
+#include "game_log.h"
+
 struct GameOffscreenBuffer
 {
     void* memory;
@@ -154,13 +152,10 @@ struct GameMemory
     MemoryArena loggingArena;
     
     PlatformGetDateTimeType* PlatformGetDateTime;
-    PlatformWriteLogMsgType* PlatformWriteLogMsg;
     DEBUGPlatformFreeFileMemoryType* DEBUGPlatformFreeFileMemory;
     DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile;
     DEBUGPlatformWriteEntireFileType* DEBUGPlatformWriteEntireFile;
 };
-
-#include "game_log.h" // TODO(yuval & eran): Move this back to the top
 
 /* GameUpdateAndRender gets 4 thing from the Platform:
    1. Timing
@@ -227,7 +222,7 @@ struct WorldPosition
 {
     // NOTE: These are fixed point tile locations.
     // The high bits are the tile chunk index,
-    // and the low bits are the tile index in the chunk. 
+    // and the low bits are the tile index in the chunk.
     u32 absTileX;
     u32 absTileY;
     

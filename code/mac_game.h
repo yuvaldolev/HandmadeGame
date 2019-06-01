@@ -7,7 +7,6 @@ struct MacGameCode
     
     GameUpdateAndRenderType* UpdateAndRender;
     GameGetSoundSamplesType* GetSoundSamples;
-    LogType* Log;
     
     b32 isValid;
 };
