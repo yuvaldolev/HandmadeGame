@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include "game_log.cpp"
+#include "game_tile.cpp"
 
 #include <math.h> // TODO(yuval & eran): Temporary
 
@@ -53,33 +54,6 @@ DEBUGLoadBMP(ThreadContext* thread,
             }
         }
     }
-    return result;
-}
-
-inline void
-RecanonicalizeCoord(World* world, u32* tile, f32* tileRel)
-{
-    // NOTE: The world is assumed to be toroidal, if you step off
-    // one end you come back on the other!
-    
-    s32 offset = RoundF32ToS32(*tileRel / world->tileSideInMeters);
-    *tile += offset;
-    *tileRel -= offset * world->tileSideInMeters;
-    
-    Assert(*tileRel >= -0.5 * world->tileSideInPixels);
-    // TODO(yuval, eran): @Fix floating point math so this can be
-    // only "less then" and not "less then or equals"
-    Assert(*tileRel <= 0.5 * world->tileSideInPixels);
-}
-
-internal WorldPosition
-RecanonicalizePosition(World* world, WorldPosition pos)
-{
-    WorldPosition result = pos;
-    
-    RecanonicalizeCoord(world, &result.absTileX, &result.tileRelX);
-    RecanonicalizeCoord(world, &result.absTileY, &result.tileRelY);
-    
     return result;
 }
 
@@ -200,80 +174,6 @@ DrawRectangle(GameOffscreenBuffer* buffer,
     }
 }
 
-
-internal u32
-GetTileValueUnchecked(World* world, TileChunk* tileChunk, u32 tileX, u32 tileY)
-{
-    Assert(tileChunk);
-    Assert(tileX < world->chunkDim);
-    Assert(tileY < world->chunkDim);
-    
-    u32 tileValue = tileChunk->tiles[tileY * world->chunkDim + tileX];
-    
-    return tileValue;
-}
-
-internal TileChunk*
-GetTileChunk(World* world, s32 tileChunkX, s32 tileChunkY)
-{
-    TileChunk* tileChunk = 0;
-    
-    if ((tileChunkX >= 0 && tileChunkX < world->tileChunkCountX) &&
-        (tileChunkY >= 0 && tileChunkY < world->tileChunkCountY))
-    {
-        tileChunk = &world->tileChunks[tileChunkY * world->tileChunkCountX +
-                tileChunkX];
-    }
-    
-    return tileChunk;
-}
-
-inline TileChunkPosition
-GetChunkPositionFor(World* world, u32 absTileX, u32 absTileY)
-{
-    TileChunkPosition result;
-    
-    result.tileChunkX = absTileX >> world->chunkShift;
-    result.tileChunkY = absTileY >> world->chunkShift;
-    result.relTileX = absTileX & world->chunkMask;
-    result.relTileY = absTileY & world->chunkMask;
-    
-    return result;
-}
-
-internal b32
-GetTileValue(World* world, TileChunk* tileChunk, u32 tileX, u32 tileY)
-{
-    u32 tileChunkValue = 0;
-    
-    if (tileChunk)
-    {
-        tileChunkValue = GetTileValueUnchecked(world, tileChunk, tileX, tileY);
-    }
-    
-    return tileChunkValue;
-}
-
-internal u32
-GetTileValue(World* world, u32 absTileX, u32 absTileY)
-{
-    TileChunkPosition chunkPos = GetChunkPositionFor(world, absTileX, absTileY);
-    TileChunk* tileChunk = GetTileChunk(world, chunkPos.tileChunkY, chunkPos.tileChunkX);
-    u32 tileChunkValue = GetTileValue(world, tileChunk, chunkPos.relTileX, chunkPos.relTileY);
-    
-    return tileChunkValue;
-}
-
-internal b32
-IsWorldPointEmpty(World* world, WorldPosition pos)
-{
-    u32 tileChunkValue = GetTileValue(world, pos.absTileX, pos.absTileY);
-    b32 isEmpty = (tileChunkValue == 0);
-    
-    return isEmpty;
-}
-
-
 internal void
 GameOutputSound(GameState* gameState, GameSoundOutputBuffer* buffer, const s32 toneHz)
 {
@@ -315,7 +215,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     GameState* gameState = (GameState*)memory->permanentStorage;
     
-    // TODO(yuval & eran): This is temporary
+    // TODO(yuval & eran): @Temporary
     globalLogMemory = memory;
     globalLogFormatMemory = memory;
     
@@ -331,6 +231,55 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         gameState->playerP.absTileY = 3;
         gameState->playerP.tileRelX = 5.0f;
         gameState->playerP.tileRelY = 5.0f;
+        
+        gameState->world = ;
+        World* world = gameState->world;
+        world->tileMap = ;
+        
+        TileMap tileMap;
+        
+        // NOTE: This is set to be using 256x256 tile chunks
+        tileMap->chunkShift = 8;
+        tileMap->chunkMask = (1 << tileMap->chunkShift) - 1;
+        tileMap->chunkDim = TILE_CHUNK_DIM;
+        
+        tileMap->tileChunkCountX = 1;
+        tileMap->tileChunkCountY = 1;
+        
+        TileChunk tileChunk;
+        tileChunk.tiles = (u32*)tempTiles;
+        tileMap->tileChunks = &tileChunk;
+        
+        tileMap->tileSideInMeters = 1.4f;
+        tileMap->tileSideInPixels = 60;
+        tileMap->metersToPixels = (f32)tileMap->tileSideInPixels / tileMap->tileSideInMeters;
+        
+        f32 playerHeight = 1.4f;
+        f32 playerWidth = playerHeight * 0.75f;
+        
+        f32 lowerLeftX = -(f32)tileMap->tileSideInPixels / 2;
+        f32 lowerLeftY = (f32)offscreenBuffer->height;
+        
+        const u32 TILES_PER_WIDTH = 17;
+        const u32 TILES_PER_HEIGHT = 9;
+        
+        for (u32 screenY = 0; screenY < 32; ++screenY)
+        {
+            for (u32 screenX = 0; screenX < 32; ++screenX)
+            {
+                for (u32 tileY = 0; tileY < TILES_PER_HEIGHT; ++tileY)
+                {
+                    for (u32 tileX = 0; tileX < TILES_PER_WIDTH; ++tileX)
+                    {
+                        u32 absTileX = screenX * TILES_PER_WIDTH + tileX;
+                        u32 absTileY = screenY * TILES_PER_WIDTH + tileY;
+                        
+                        SetTileValue(world->tileMap, absTileX, absTileY, 0);
+                    }
+                }
+            }
+        }
+        
         gameState->backdrop = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_background.bmp");
         
         gameState->heroBitmap[0].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_head.bmp");
@@ -353,54 +302,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         memory->isInitialized = true;
     }
-    
-#define TILE_CHUNK_DIM 256
-    
-    u32 tempTiles[TILE_CHUNK_DIM][TILE_CHUNK_DIM] = {
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
-        
-        { 1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  0,  1, 1, 1, 1,  1, 1, 1, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  1, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  1, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  1, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 0, 0, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1,  1, 0, 1, 0,  0, 0, 0, 0,  0,  0, 0, 0, 0,  0, 0, 0, 1 },
-        { 1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1,  1, 1, 1, 1,  1, 1, 1, 1 }
-    };
-    
-    World world;
-    
-    // NOTE: This is set to be using 256x256 tile chunks
-    world.chunkShift = 8;
-    world.chunkMask = (1 << world.chunkShift) - 1;
-    world.chunkDim = TILE_CHUNK_DIM;
-    
-    world.tileChunkCountX = 1;
-    world.tileChunkCountY = 1;
-    
-    TileChunk tileChunk;
-    tileChunk.tiles = (u32*)tempTiles;
-    world.tileChunks = &tileChunk;
-    
-    world.tileSideInMeters = 1.4f;
-    world.tileSideInPixels = 60;
-    world.metersToPixels = (f32)world.tileSideInPixels / world.tileSideInMeters;
-    
-    f32 playerHeight = 1.4f;
-    f32 playerWidth = playerHeight * 0.75f;
-    
-    f32 lowerLeftX = -(f32)world.tileSideInPixels / 2;
-    f32 lowerLeftY = (f32)offscreenBuffer->height;
     
     for (u32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
@@ -458,22 +359,22 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             dPlayerX *= playerSpeed;
             dPlayerY *= playerSpeed;
             
-            WorldPosition newPlayerP = gameState->playerP;
+            TileMapPosition newPlayerP = gameState->playerP;
             newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
             newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
-            newPlayerP = RecanonicalizePosition(&world, newPlayerP);
+            newPlayerP = RecanonicalizePosition(&tileMap, newPlayerP);
             
-            WorldPosition playerLeft = newPlayerP;
+            TileMapPosition playerLeft = newPlayerP;
             playerLeft.tileRelX -= 0.5f * playerWidth;
-            playerLeft = RecanonicalizePosition(&world, playerLeft);
+            playerLeft = RecanonicalizePosition(&tileMap, playerLeft);
             
-            WorldPosition playerRight = newPlayerP;
+            TileMapPosition playerRight = newPlayerP;
             playerRight.tileRelX += 0.5f * playerWidth;
-            playerRight = RecanonicalizePosition(&world, playerRight);
+            playerRight = RecanonicalizePosition(&tileMap, playerRight);
             
-            if (IsWorldPointEmpty(&world, newPlayerP) &&
-                IsWorldPointEmpty(&world, playerLeft) &&
-                IsWorldPointEmpty(&world, playerRight))
+            if (IsTileMapPointEmpty(&tileMap, newPlayerP) &&
+                IsTileMapPointEmpty(&tileMap, playerLeft) &&
+                IsTileMapPointEmpty(&tileMap, playerRight))
             {
                 gameState->playerP = newPlayerP;
             }
@@ -491,7 +392,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             u32 column = gameState->playerP.absTileX + relColumn;
             u32 row =  gameState->playerP.absTileY + relRow;
-            u32 tileID = GetTileValue(&world, column, row);
+            u32 tileID = GetTileValue(&tileMap, column, row);
             
             s32 tileValue = tileID;
             f32 tileColor = 0.5f;
@@ -510,15 +411,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             
             if (tileValue != 0)
             {
-                f32 cenX = screenCenterX - gameState->playerP.tileRelX * world.metersToPixels +
-                    (f32)(relColumn * world.tileSideInPixels);
-                f32 cenY = screenCenterY + gameState->playerP.tileRelY * world.metersToPixels -
-                    (f32)(relRow * world.tileSideInPixels);
+                f32 cenX = screenCenterX - gameState->playerP.tileRelX * tileMap.metersToPixels +
+                    (f32)(relColumn * tileMap.tileSideInPixels);
+                f32 cenY = screenCenterY + gameState->playerP.tileRelY * tileMap.metersToPixels -
+                    (f32)(relRow * tileMap.tileSideInPixels);
                 
-                f32 minX = cenX - 0.5f * world.tileSideInPixels;
-                f32 minY = cenY - 0.5f * world.tileSideInPixels;
-                f32 maxX = cenX + 0.5f * world.tileSideInPixels;
-                f32 maxY = cenY + 0.5f * world.tileSideInPixels;
+                f32 minX = cenX - 0.5f * tileMap.tileSideInPixels;
+                f32 minY = cenY - 0.5f * tileMap.tileSideInPixels;
+                f32 maxX = cenX + 0.5f * tileMap.tileSideInPixels;
+                f32 maxY = cenY + 0.5f * tileMap.tileSideInPixels;
                 
                 DrawRectangle(offscreenBuffer,
                               minX, minY, maxX, maxY,
@@ -532,13 +433,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerB = 1.0f;
     
     
-    f32 playerLeft = screenCenterX - 0.5f * playerWidth * world.metersToPixels;
-    f32 playerTop = screenCenterY - playerHeight * world.metersToPixels;
+    f32 playerLeft = screenCenterX - 0.5f * playerWidth * tileMap.metersToPixels;
+    f32 playerTop = screenCenterY - playerHeight * tileMap.metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,
-                  playerLeft + playerWidth * world.metersToPixels,
-                  playerTop + playerHeight * world.metersToPixels,
+                  playerLeft + playerWidth * tileMap.metersToPixels,
+                  playerTop + playerHeight * tileMap.metersToPixels,
                   playerR, playerG, playerB);
     
     HeroBitmap* heroBitmap = &gameState->heroBitmap[gameState->facingDirection];
