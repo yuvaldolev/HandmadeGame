@@ -13,8 +13,8 @@
 
 #include <dlfcn.h>
 #include <libproc.h>
-#include <stdio.h> // TODO(yuval): Remove this temporary include
 #include <sys/stat.h>
+#include <stdio.h> // TODO(yuval): Remove this temporary include
 
 #include <mach/mach_time.h>
 
@@ -96,7 +96,90 @@ PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
     result.milliseconds = (u16)(1.0E-6 * [dateComponents nanosecond]);
     
     return result;
+}
+
+PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsg)
+{
+    printf("%s", msg->formatted);
+}
+
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+    if (memory)
+    {
+        free(memory);
+    }
+}
+
+// TODO(yuval & eran): Renable Logging in DEBUG read & write
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
+{
+    DEBUGReadFileResult result = { };
     
+    int fileHandle = open(fileName, O_RDONLY);
+    
+    if (fileHandle != -1)
+    {
+        struct stat fileStat;
+        
+        if (fstat(fileHandle, &fileStat) == 0)
+        {
+            u32 fileSize32 = SafeTruncateToU32(fileStat.st_size);
+            result.contents = malloc(fileSize32);
+            
+            if (result.contents)
+            {
+                memory_index bytesRead = read(fileHandle, result.contents, fileSize32);
+                
+                if (bytesRead == fileSize32)
+                {
+                    result.contentsSize = fileSize32;
+                }
+                else
+                {
+                    DEBUGPlatformFreeFileMemory(thread, result.contents);
+                    result.contents = 0;
+                }
+            }
+            else
+            {
+                // TODO(yuval, eran): Diagnostic
+            }
+        }
+        else
+        {
+            // TODO(yuval, eran): Diagnostic
+        }
+        
+        close(fileHandle);
+    }
+    else
+    {
+        // TODO(yuval, eran): Diagnostic
+    }
+    
+    return result;
+}
+
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
+{
+    b32 result = false;
+    
+    int fileHandle = open(fileName, O_WRONLY | O_CREAT, 0644);
+    
+    if (fileHandle != -1)
+    {
+        memory_index bytesWritten = write(fileHandle, memory, memorySize);
+        result = (bytesWritten == memorySize);
+        
+        close(fileHandle);
+    }
+    else
+    {
+        // TODO(yuval, eran): Diagnostic
+    }
+    
+    return result;
 }
 
 internal void
@@ -1059,6 +1142,12 @@ main(int argc, const char* argv[])
         GameMemory gameMemory = { };
         gameMemory.permanentStorageSize = Megabytes(64);
         gameMemory.transientStorageSize = Gigabytes(1);
+        
+        gameMemory.PlatformGetDateTime = PlatformGetDateTime;
+        gameMemory.PlatformWriteLogMsg = PlatformWriteLogMsg;
+        gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+        gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
+        gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
         
         macState.totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
         

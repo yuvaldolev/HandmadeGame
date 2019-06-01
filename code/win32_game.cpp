@@ -137,7 +137,6 @@ PLATFORM_WRITE_LOG_MSG(PlatformWriteLogMsg)
     OutputDebugStringA(msg->formatted);
 }
 
-
 DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
 {
     if (memory)

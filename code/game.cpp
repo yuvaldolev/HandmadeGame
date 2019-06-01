@@ -528,9 +528,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     
     f32 playerR = 1.0f;
-    f32 playerG = 0.0f;
-    f32 playerB = 1.0f;
-    
+    f32 playerG = 1.0f;
+    f32 playerB = 0.0f;
     
     f32 playerLeft = screenCenterX - 0.5f * playerWidth * world.metersToPixels;
     f32 playerTop = screenCenterY - playerHeight * world.metersToPixels;
