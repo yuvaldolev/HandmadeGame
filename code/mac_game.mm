@@ -13,8 +13,8 @@
 
 #include <dlfcn.h>
 #include <libproc.h>
-#include <stdio.h> // TODO(yuval): Remove this temporary include
 #include <sys/stat.h>
+#include <stdio.h> // TODO(yuval): Remove this temporary include
 
 #include <mach/mach_time.h>
 
@@ -96,7 +96,85 @@ PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
     result.milliseconds = (u16)(1.0E-6 * [dateComponents nanosecond]);
     
     return result;
+}
+
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+    if (memory)
+    {
+        free(memory);
+    }
+}
+
+// TODO(yuval & eran): Renable Logging in DEBUG read & write
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
+{
+    DEBUGReadFileResult result = { };
     
+    int fileHandle = open(fileName, O_RDONLY);
+    
+    if (fileHandle != -1)
+    {
+        struct stat fileStat;
+        
+        if (fstat(fileHandle, &fileStat) == 0)
+        {
+            u32 fileSize32 = SafeTruncateToU32(fileStat.st_size);
+            result.contents = malloc(fileSize32);
+            
+            if (result.contents)
+            {
+                memory_index bytesRead = read(fileHandle, result.contents, fileSize32);
+                
+                if (bytesRead == fileSize32)
+                {
+                    result.contentsSize = fileSize32;
+                }
+                else
+                {
+                    DEBUGPlatformFreeFileMemory(thread, result.contents);
+                    result.contents = 0;
+                }
+            }
+            else
+            {
+                // TODO(yuval, eran): Diagnostic
+            }
+        }
+        else
+        {
+            // TODO(yuval, eran): Diagnostic
+        }
+        
+        close(fileHandle);
+    }
+    else
+    {
+        // TODO(yuval, eran): Diagnostic
+    }
+    
+    return result;
+}
+
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
+{
+    b32 result = false;
+    
+    int fileHandle = open(fileName, O_WRONLY | O_CREAT, 0644);
+    
+    if (fileHandle != -1)
+    {
+        memory_index bytesWritten = write(fileHandle, memory, memorySize);
+        result = (bytesWritten == memorySize);
+        
+        close(fileHandle);
+    }
+    else
+    {
+        // TODO(yuval, eran): Diagnostic
+    }
+    
+    return result;
 }
 
 internal void
@@ -726,7 +804,7 @@ MacResizeBackbuffer(MacOffscreenBuffer* buffer, s32 width, s32 height)
 }
 
 internal void
-MacProcessPendingMessages(MacState* state, GameController* keyboardController)
+MacProcessPendingMessages(NSWindow* window, MacState* state, GameController* keyboardController)
 {
     NSEvent* event;
     
@@ -753,6 +831,15 @@ MacProcessPendingMessages(MacState* state, GameController* keyboardController)
                 {
                     globalRunning = false;
                 }
+#if GAME_INTERNAL
+                else if (keyCode == kVK_F11 && optionKeyIsDown)
+                {
+                    if (isDown)
+                    {
+                        [window toggleFullScreen:nil];
+                    }
+                }
+#endif
                 else if (isRepeated == NO)
                 {
                     switch (keyCode)
@@ -890,7 +977,6 @@ MacUnloadGameCode(MacGameCode* gameCode)
     gameCode->isValid = false;
     gameCode->UpdateAndRender = 0;
     gameCode->GetSoundSamples = 0;
-    gameCode->Log = 0;
 }
 
 inline time_t
@@ -921,19 +1007,15 @@ MacLoadGameCode(const char* sourceGameCodeDLLFullPath)
             dlsym(result.gameCodeDLL, "GameUpdateAndRender");
         result.GetSoundSamples = (GameGetSoundSamplesType*)
             dlsym(result.gameCodeDLL, "GameGetSoundSamples");
-        result.Log = (LogType*)
-            dlsym(result.gameCodeDLL, "Log");
         
         result.isValid = (result.UpdateAndRender &&
-                          result.GetSoundSamples &&
-                          result.Log);
+                          result.GetSoundSamples);
     }
     
     if (!result.isValid)
     {
         result.UpdateAndRender = 0;
         result.GetSoundSamples = 0;
-        result.Log = 0;
     }
     
     return result;
@@ -1021,6 +1103,14 @@ main(int argc, const char* argv[])
         [window setTitle:@"Handmade Game"];
         [window makeKeyAndOrderFront:nil];
         
+        // NOTE: If the game is running on a development machine than
+        // we should show the cursor for edittor debugging puposes
+#if GAME_INTERNAL
+#else
+        [window toggleFullScreen:nil];
+        CGDisplayHideCursor(kCGDirectMainDisplay);
+#endif
+        
         CGDirectDisplayID displayID = CGMainDisplayID();
         CGDisplayModeRef displayMode = CGDisplayCopyDisplayMode(displayID);
         f64 monitorRefreshRate = CGDisplayModeGetRefreshRate(displayMode);
@@ -1059,6 +1149,11 @@ main(int argc, const char* argv[])
         GameMemory gameMemory = { };
         gameMemory.permanentStorageSize = Megabytes(64);
         gameMemory.transientStorageSize = Gigabytes(1);
+        
+        gameMemory.PlatformGetDateTime = PlatformGetDateTime;
+        gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+        gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
+        gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
         
         macState.totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
         
@@ -1197,7 +1292,7 @@ main(int argc, const char* argv[])
                         oldKeyboardController->buttons[buttonIndex].endedDown;
                 }
                 
-                MacProcessPendingMessages(&macState, newKeyboardController);
+                MacProcessPendingMessages(window, &macState, newKeyboardController);
                 
                 if (!globalPause)
                 {

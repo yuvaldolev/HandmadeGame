@@ -7,7 +7,6 @@ struct Win32GameCode
     
     GameUpdateAndRenderType* UpdateAndRender;
     GameGetSoundSamplesType* GetSoundSamples;
-    LogType* Log;
     
     b32 isValid;
 };

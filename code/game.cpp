@@ -225,7 +225,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         (u8*)memory->permanentStorage + sizeof(GameState),
                         (u64)(memory->permanentStorageSize * 0.0001f));
         
-        LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L - %m%n");
+        LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
         
         gameState->playerP.absTileX = 3;
         gameState->playerP.absTileY = 3;
@@ -429,9 +429,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
     
     f32 playerR = 1.0f;
-    f32 playerG = 0.0f;
-    f32 playerB = 1.0f;
-    
+    f32 playerG = 1.0f;
+    f32 playerB = 0.0f;
     
     f32 playerLeft = screenCenterX - 0.5f * playerWidth * tileMap.metersToPixels;
     f32 playerTop = screenCenterY - playerHeight * tileMap.metersToPixels;

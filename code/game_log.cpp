@@ -1,5 +1,8 @@
 #include "game_log_format.cpp"
 
+// TODO(yuval, eran): @Temporary
+#include <stdio.h>
+
 global_variable LogLevelEnum globalMinLevel;
 global_variable GameMemory* globalLogMemory;
 
@@ -11,18 +14,22 @@ LogInit(MemoryArena* arena,
     LogFormatSetPattern(arena, logFmt);
 }
 
-extern "C" LOG(Log)
+
+internal void
+Log(LogLevelEnum level, const char* logFileName,
+    const char* logFnName, long logLine,
+    const char* format, ...)
 {
     if (level >= globalMinLevel)
     {
-        // NOTE(yuval): VA LIST extraction
+        // NOTE: VA LIST extraction
         va_list argList;
         va_start(argList, format);
-
-        // NOTE(yuval): LogMsg struct instance
+        
+        // NOTE: LogMsg struct instance
         const u32 FORMATTED_SIZE = 4096;
         char formatted[FORMATTED_SIZE] = { };
-
+        
         LogMsg msg = { };
         msg.level = level;
         msg.file = logFileName;
@@ -34,14 +41,15 @@ extern "C" LOG(Log)
         msg.formattedAt = formatted;
         msg.remainingFormattingSpace = FORMATTED_SIZE;
         msg.maxSize = FORMATTED_SIZE;
-
-        // NOTE(yuval): Format Message
+        
+        // NOTE: Format Message
         LogFormatMessage(&msg);
-
-        // NOTE(yuval): Log Message In Color
-        globalLogMemory->PlatformWriteLogMsg(&msg);
-
-        // NOTE(yuval): End VA LIST
+        
+        // NOTE: Log Message In Color
+        // TODO(yuval, eran): @Temporary
+        printf("%s", msg.formatted);
+        
+        // NOTE: End VA LIST
         va_end(argList);
     }
 }
