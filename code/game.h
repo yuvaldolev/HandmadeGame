@@ -5,6 +5,7 @@
 #include "game_memory.h"
 #include "game_log.h"
 #include "game_tile.h"
+#include "game_random.h"
 
 /*
    NOTE(yuval): Build Options

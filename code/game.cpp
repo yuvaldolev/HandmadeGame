@@ -227,6 +227,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&gameState->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
         
+        LogDebug("Random Number Amount: %d\n", ArrayCount(randomNumberTable));
+        
         gameState->playerP.absTileX = 1;
         gameState->playerP.absTileY = 3;
         gameState->playerP.tileRelX = 5.0f;
@@ -244,51 +246,157 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         TileMap* tileMap = world->tileMap;
         
         // NOTE: This is set to be using 256x256 tile chunks
-        tileMap->chunkShift = 8;
+        tileMap->chunkShift = 4;
         tileMap->chunkMask = (1 << tileMap->chunkShift) - 1;
         tileMap->chunkDim = (1 << tileMap->chunkShift);
         
-        tileMap->tileChunkCountX = 4;
-        tileMap->tileChunkCountY = 4;
-        
+        tileMap->tileChunkCountX = 128;
+        tileMap->tileChunkCountY = 128;
+        tileMap->tileChunkCountZ = 2;
         tileMap->tileChunks = PushArray(&gameState->worldArena, TileChunk,
-                                        tileMap->tileChunkCountX * tileMap->tileChunkCountY);
-        
-        for (u32 Y = 0; Y < tileMap->tileChunkCountY; ++Y)
-        {
-            for (u32 X = 0; X < tileMap->tileChunkCountX; ++X)
-            {
-                tileMap->tileChunks[Y * tileMap->tileChunkCountX + X].tiles =
-                    PushArray(&gameState->worldArena, u32, tileMap->chunkDim * tileMap->chunkDim);
-            }
-        }
+                                        tileMap->tileChunkCountX * tileMap->tileChunkCountY *
+                                        tileMap->tileChunkCountZ);
         
         tileMap->tileSideInMeters = 1.4f;
-        tileMap->tileSideInPixels = 60;
-        tileMap->metersToPixels = (f32)tileMap->tileSideInPixels / tileMap->tileSideInMeters;
         
-        f32 lowerLeftX = -(f32)tileMap->tileSideInPixels / 2;
-        f32 lowerLeftY = (f32)offscreenBuffer->height;
+        u32 randomNumberIndex = 0;
         
         const u32 TILES_PER_WIDTH = 17;
         const u32 TILES_PER_HEIGHT = 9;
         
-        for (u32 screenY = 0; screenY < 32; ++screenY)
+        u32 screenX = 0;
+        u32 screenY = 0;
+        u32 absTileZ = 0;
+        
+        b32 doorLeft = false;
+        b32 doorRight = false;
+        b32 doorTop = false;
+        b32 doorBottom = false;
+        b32 doorUp = false;
+        b32 doorDown = false;
+        
+        for (u32 screenIndex = 0; screenIndex < 100; ++screenIndex)
         {
-            for (u32 screenX = 0; screenX < 32; ++screenX)
+            // TODO(yuval, eran): Random number generator
+            Assert(randomNumberIndex < ArrayCount(randomNumberTable));
+            u32 randomChoice;
+            
+            if (doorUp || doorDown)
             {
-                for (u32 tileY = 0; tileY < TILES_PER_HEIGHT; ++tileY)
+                randomChoice = randomNumberTable[randomNumberIndex++] % 2;
+            }
+            else
+            {
+                randomChoice = randomNumberTable[randomNumberIndex++] % 3;
+            }
+            
+            b32 createdZDoor = false;
+            
+            if (randomChoice == 2)
+            {
+                createdZDoor = true;
+                
+                if (absTileZ == 0)
                 {
-                    for (u32 tileX = 0; tileX < TILES_PER_WIDTH; ++tileX)
-                    {
-                        u32 absTileX = screenX * TILES_PER_WIDTH + tileX;
-                        u32 absTileY = screenY * TILES_PER_HEIGHT + tileY;
-                        
-                        SetTileValue(&gameState->worldArena, world->tileMap,
-                                     absTileX, absTileY,
-                                     ((tileX == tileY) && (tileY % 2)) ? 1 : 0);
-                    }
+                    doorUp = true;
                 }
+                else
+                {
+                    doorDown = true;
+                }
+            }
+            else if (randomChoice == 1)
+            {
+                doorRight = true;
+            }
+            else
+            {
+                doorTop = true;
+            }
+            
+            for (u32 tileY = 0; tileY < TILES_PER_HEIGHT; ++tileY)
+            {
+                for (u32 tileX = 0; tileX < TILES_PER_WIDTH; ++tileX)
+                {
+                    u32 absTileX = screenX * TILES_PER_WIDTH + tileX;
+                    u32 absTileY = screenY * TILES_PER_HEIGHT + tileY;
+                    
+                    u32 tileValue = 1;
+                    
+                    if (tileX == 0 && (!doorLeft || (tileY != (TILES_PER_HEIGHT / 2))))
+                    {
+                        tileValue = 2;
+                    }
+                    
+                    if ((tileX == (TILES_PER_WIDTH - 1)) &&
+                        (!doorRight || (tileY != (TILES_PER_HEIGHT / 2))))
+                    {
+                        tileValue = 2;
+                    }
+                    
+                    if (tileY == 0 && (!doorBottom || (tileX != (TILES_PER_WIDTH / 2))))
+                    {
+                        tileValue = 2;
+                    }
+                    
+                    if ((tileY == TILES_PER_HEIGHT - 1) &&
+                        (!doorTop || (tileX != (TILES_PER_WIDTH / 2))))
+                    {
+                        tileValue = 2;
+                    }
+                    
+                    if ((tileX == 10) && (tileY == 6))
+                    {
+                        if (doorUp)
+                        {
+                            tileValue = 3;
+                        }
+                        else if (doorDown)
+                        {
+                            tileValue = 4;
+                        }
+                    }
+                    
+                    SetTileValue(&gameState->worldArena, world->tileMap,
+                                 absTileX, absTileY, absTileZ, tileValue);
+                }
+            }
+            
+            doorLeft = doorRight;
+            doorBottom = doorTop;
+            
+            doorRight = false;
+            doorTop = false;
+            
+            if (createdZDoor)
+            {
+                doorUp = !doorUp;
+                doorDown = !doorDown;
+            }
+            else
+            {
+                doorUp = false;
+                doorDown = false;
+            }
+            
+            if (randomChoice == 2)
+            {
+                if (absTileZ == 0)
+                {
+                    absTileZ = 1;
+                }
+                else
+                {
+                    absTileZ = 0;
+                }
+            }
+            else if (randomChoice == 1)
+            {
+                ++screenX;
+            }
+            else
+            {
+                ++screenY;
             }
         }
         
@@ -320,6 +428,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     World* world = gameState->world;
     TileMap* tileMap = world->tileMap;
+    
+    s32 tileSideInPixels = 60;
+    f32 metersToPixels = (f32)tileSideInPixels / tileMap->tileSideInMeters;
+    
+    f32 lowerLeftX = -(f32)tileSideInPixels / 2.0f;
+    f32 lowerLeftY = (f32)offscreenBuffer->height;
     
     for (u32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
@@ -394,6 +508,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 IsTileMapPointEmpty(tileMap, playerLeft) &&
                 IsTileMapPointEmpty(tileMap, playerRight))
             {
+                if (!AreOnSameTile(&gameState->playerP, &newPlayerP))
+                {
+                    u32 newTileValue = GetTileValue(tileMap, newPlayerP);
+                    
+                    if (newTileValue == 3)
+                    {
+                        ++newPlayerP.absTileZ;
+                    }
+                    else if (newTileValue == 4)
+                    {
+                        -- newPlayerP.absTileZ;
+                    }
+                }
+                
                 gameState->playerP = newPlayerP;
             }
         }
@@ -410,34 +538,37 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             u32 column = gameState->playerP.absTileX + relColumn;
             u32 row =  gameState->playerP.absTileY + relRow;
-            u32 tileID = GetTileValue(tileMap, column, row);
+            u32 tileID = GetTileValue(tileMap, column, row, gameState->playerP.absTileZ);
             
-            s32 tileValue = tileID;
-            f32 tileColor = 0.5f;
-            
-            if (tileID == 1)
+            if (tileID > 0)
             {
-                tileColor = 1.0f;
-            }
-            
-            if ((column == gameState->playerP.absTileX) &&
-                (row == gameState->playerP.absTileY))
-            {
-                tileValue = 2;
-                tileColor = 0.0f;
-            }
-            
-            if (tileValue != 0)
-            {
-                f32 cenX = screenCenterX - gameState->playerP.tileRelX * tileMap->metersToPixels +
-                    (f32)(relColumn * tileMap->tileSideInPixels);
-                f32 cenY = screenCenterY + gameState->playerP.tileRelY * tileMap->metersToPixels -
-                    (f32)(relRow * tileMap->tileSideInPixels);
+                f32 tileColor = 0.5f;
                 
-                f32 minX = cenX - 0.5f * tileMap->tileSideInPixels;
-                f32 minY = cenY - 0.5f * tileMap->tileSideInPixels;
-                f32 maxX = cenX + 0.5f * tileMap->tileSideInPixels;
-                f32 maxY = cenY + 0.5f * tileMap->tileSideInPixels;
+                if (tileID == 2)
+                {
+                    tileColor = 1.0f;
+                }
+                
+                if (tileID > 2)
+                {
+                    tileColor = 0.25f;
+                }
+                
+                if ((column == gameState->playerP.absTileX) &&
+                    (row == gameState->playerP.absTileY))
+                {
+                    tileColor = 0.0f;
+                }
+                
+                f32 cenX = screenCenterX - gameState->playerP.tileRelX * metersToPixels +
+                    (f32)(relColumn * tileSideInPixels);
+                f32 cenY = screenCenterY + gameState->playerP.tileRelY * metersToPixels -
+                    (f32)(relRow * tileSideInPixels);
+                
+                f32 minX = cenX - 0.5f * tileSideInPixels;
+                f32 minY = cenY - 0.5f * tileSideInPixels;
+                f32 maxX = cenX + 0.5f * tileSideInPixels;
+                f32 maxY = cenY + 0.5f * tileSideInPixels;
                 
                 DrawRectangle(offscreenBuffer,
                               minX, minY, maxX, maxY,
@@ -450,20 +581,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerG = 1.0f;
     f32 playerB = 0.0f;
     
-    f32 playerLeft = screenCenterX - 0.5f * playerWidth * tileMap->metersToPixels;
-    f32 playerTop = screenCenterY - playerHeight * tileMap->metersToPixels;
+    f32 playerLeft = screenCenterX - 0.5f * playerWidth * metersToPixels;
+    f32 playerTop = screenCenterY - playerHeight * metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,
-                  playerLeft + playerWidth * tileMap->metersToPixels,
-                  playerTop + playerHeight * tileMap->metersToPixels,
+                  playerLeft + playerWidth * metersToPixels,
+                  playerTop + playerHeight * metersToPixels,
                   playerR, playerG, playerB);
     
-    HeroBitmap* heroBitmap = &gameState->heroBitmap[gameState->facingDirection];
+    /*HeroBitmap* heroBitmap = &gameState->heroBitmap[gameState->facingDirection];
     
     TEMPDrawBitMap(offscreenBuffer, &heroBitmap->head, playerLeft, playerTop);
     TEMPDrawBitMap(offscreenBuffer, &heroBitmap->cape, playerLeft, playerTop);
-    TEMPDrawBitMap(offscreenBuffer, &heroBitmap->torso, playerLeft, playerTop);
+    TEMPDrawBitMap(offscreenBuffer, &heroBitmap->torso, playerLeft, playerTop);*/
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
