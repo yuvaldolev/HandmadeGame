@@ -16,24 +16,25 @@ DEBUGLoadBMP(ThreadContext* thread,
 {
     LoadedBitmap result = { };
     DEBUGReadFileResult readResult = DEBUGPlatformReadEntireFile(thread, fileName);
+    
     if (readResult.contentsSize != 0)
     {
         BitmapHeader* header = (BitmapHeader*)readResult.contents;
+        result.pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
         result.width = header->width;
         result.height = header->height;
-        result.pixels = (u32*)((u8*)readResult.contents + header->bitmapOffset);
+        
+        Assert(header->compression == 3);
         
         u32 redMask = header->redMask;
         u32 greenMask = header->greenMask;
         u32 blueMask = header->blueMask;
         u32 alphaMask = ~(header->blueMask | header->redMask | header->greenMask);
         
-        
         BitScanResult redShift = FindLeastSignificantSetBit(redMask);
         BitScanResult greenShift = FindLeastSignificantSetBit(greenMask);
         BitScanResult blueShift = FindLeastSignificantSetBit(blueMask);
         BitScanResult alphaShift = FindLeastSignificantSetBit(alphaMask);
-        
         
         Assert(redShift.found);
         Assert(greenShift.found);
@@ -54,11 +55,12 @@ DEBUGLoadBMP(ThreadContext* thread,
             }
         }
     }
+    
     return result;
 }
 
 internal void
-TEMPDrawBitMap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 realX, f32 realY)
+DrawBitmap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 realX, f32 realY)
 {
     s32 minX = RoundF32ToS32(realX);
     s32 minY = RoundF32ToS32(realY);
@@ -92,12 +94,12 @@ TEMPDrawBitMap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 r
     
     for (s32 Y = minY; Y < maxY; ++Y)
     {
-        
         u32* dest = (u32 *)destRow;
         u32* source = sourceRow;
+        
         for (s32 X = minX; X < maxX; ++X)
         {
-            f32 alpha = (f32)((*source >> 24) & 0xFF) /255.0f;
+            f32 alpha = (f32)((*source >> 24) & 0xFF) / 255.0f;
             f32 sourceR = (f32)((*source >> 16) & 0xFF);
             f32 sourceG = (f32)((*source >> 8) & 0xFF);
             f32 sourceB = (f32)((*source >> 0) & 0xFF);
@@ -113,7 +115,6 @@ TEMPDrawBitMap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 r
             *dest = (((u32)(R + 0.5f) << 16) |
                      ((u32)(G + 0.5f) << 8) |
                      ((u32)(B + 0.5f) << 0));
-            
             
             dest++;
             source++;
@@ -227,7 +228,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         LogInit(&gameState->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
         
-        LogDebug("Random Number Amount: %d\n", ArrayCount(randomNumberTable));
+        LogDebug("Is LLVM: %d", COMPILER_LLVM);
         
         gameState->playerP.absTileX = 1;
         gameState->playerP.absTileY = 3;
@@ -402,21 +403,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         gameState->backdrop = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_background.bmp");
         
-        gameState->heroBitmap[0].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_head.bmp");
-        gameState->heroBitmap[0].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_cape.bmp");
-        gameState->heroBitmap[0].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_torso.bmp");
+        gameState->heroBitmaps[0].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_head.bmp");
+        gameState->heroBitmaps[0].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_cape.bmp");
+        gameState->heroBitmaps[0].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_torso.bmp");
         
-        gameState->heroBitmap[1].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_head.bmp");
-        gameState->heroBitmap[1].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_cape.bmp");
-        gameState->heroBitmap[1].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_torso.bmp");
+        gameState->heroBitmaps[1].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_head.bmp");
+        gameState->heroBitmaps[1].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_cape.bmp");
+        gameState->heroBitmaps[1].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_torso.bmp");
         
-        gameState->heroBitmap[2].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_head.bmp");
-        gameState->heroBitmap[2].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_cape.bmp");
-        gameState->heroBitmap[2].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_torso.bmp");
+        gameState->heroBitmaps[2].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_head.bmp");
+        gameState->heroBitmaps[2].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_cape.bmp");
+        gameState->heroBitmaps[2].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_torso.bmp");
         
-        gameState->heroBitmap[3].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_head.bmp");
-        gameState->heroBitmap[3].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_cape.bmp");
-        gameState->heroBitmap[3].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_torso.bmp");
+        gameState->heroBitmaps[3].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_head.bmp");
+        gameState->heroBitmaps[3].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_cape.bmp");
+        gameState->heroBitmaps[3].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_torso.bmp");
         
         gameState->facingDirection = 3;
         
@@ -527,7 +528,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
     
-    TEMPDrawBitMap(offscreenBuffer, &gameState->backdrop, 0, 0);
+    DrawBitmap(offscreenBuffer, &gameState->backdrop, 0, 0);
     
     f32 screenCenterX = (f32)offscreenBuffer->width / 2.0f;
     f32 screenCenterY  = (f32)offscreenBuffer->height / 2.0f;
@@ -540,7 +541,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             u32 row =  gameState->playerP.absTileY + relRow;
             u32 tileID = GetTileValue(tileMap, column, row, gameState->playerP.absTileZ);
             
-            if (tileID > 0)
+            if (tileID > 1)
             {
                 f32 tileColor = 0.5f;
                 
@@ -590,11 +591,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   playerTop + playerHeight * metersToPixels,
                   playerR, playerG, playerB);
     
-    /*HeroBitmap* heroBitmap = &gameState->heroBitmap[gameState->facingDirection];
+    HeroBitmaps* heroBitmaps = &gameState->heroBitmaps[gameState->facingDirection];
     
-    TEMPDrawBitMap(offscreenBuffer, &heroBitmap->head, playerLeft, playerTop);
-    TEMPDrawBitMap(offscreenBuffer, &heroBitmap->cape, playerLeft, playerTop);
-    TEMPDrawBitMap(offscreenBuffer, &heroBitmap->torso, playerLeft, playerTop);*/
+    DrawBitmap(offscreenBuffer, &heroBitmaps->head, playerLeft, playerTop);
+    DrawBitmap(offscreenBuffer, &heroBitmaps->cape, playerLeft, playerTop);
+    DrawBitmap(offscreenBuffer, &heroBitmaps->torso, playerLeft, playerTop);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)

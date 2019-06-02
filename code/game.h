@@ -38,7 +38,7 @@ struct BitmapHeader
     u32 sizeOfBitmap;
     s32 horiziontalResolution;
     s32 verticalResolution;
-    u32 colorUser;
+    u32 colorsUsed;
     u32 colorsImportant;
     
     u32 redMask;
@@ -54,7 +54,7 @@ struct LoadedBitmap
     s32 height;
 };
 
-struct HeroBitmap
+struct HeroBitmaps
 {
     LoadedBitmap head;
     LoadedBitmap cape;
@@ -77,7 +77,7 @@ struct GameState
     LoadedBitmap backdrop;
     
     u32 facingDirection;
-    HeroBitmap heroBitmap[4];
+    HeroBitmaps heroBitmaps[4];
 };
 
 #define GAME_H
