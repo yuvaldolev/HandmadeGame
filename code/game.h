@@ -1,9 +1,9 @@
 #if !defined(GAME_H)
 
-#include "game_types.h"
+#include "game_platform.h"
 #include "game_intrinsics.h"
-#include "game_shared.h"
 #include "game_memory.h"
+#include "game_log.h"
 #include "game_tile.h"
 
 /*
@@ -16,163 +16,6 @@ GAME_INTERNAL:
  0 - No slow code is allowed
  1 - Slow code is welcome
 */
-
-////////////////////////////////////
-//          Platform API          //
-////////////////////////////////////
-struct ThreadContext
-{
-    s32 placeHolder;
-};
-
-// NOTE(yuval): Services that the platform provides to the game
-struct PlatformDateTime
-{
-    u16 day;
-    u16 month;
-    u16 year;
-    
-    u16 hour;
-    u16 minute;
-    u16 second;
-    u16 milliseconds;
-};
-
-#define PLATFORM_GET_DATE_TIME(name) PlatformDateTime name()
-typedef PLATFORM_GET_DATE_TIME(PlatformGetDateTimeType);
-
-#ifdef GAME_INTERNAL
-/*
-IMPORTANT(yuval):
-This code is NOT shipping code -
-They are blocking and write donesn't protect against lost data!
-*/
-struct DEBUGReadFileResult
-{
-    void* contents;
-    u32 contentsSize;
-};
-
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(ThreadContext* thread, void* memory)
-typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemoryType);
-
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(ThreadContext* thread, \
-const char* fileName)
-typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFileType);
-
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(ThreadContext* thread, \
-const char* fileName, \
-void* memory, u32 memorySize)
-typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
-
-#endif
-
-// NOTE(yuval): Services that the game provides to the platform
-#include "game_log.h"
-
-struct GameOffscreenBuffer
-{
-    void* memory;
-    s32 width;
-    s32 height;
-    s32 pitch;
-    s32 bytesPerPixel;
-};
-
-struct GameSoundOutputBuffer
-{
-    s16* samples;
-    s32 samplesPerSecond;
-    u32 sampleCount;
-};
-
-struct GameButtonState
-{
-    s32 halfTransitionCount;
-    b32 endedDown;
-};
-
-struct GameController
-{
-    b32 isConnected;
-    b32 isAnalog;
-    
-    f32 stickAverageX;
-    f32 stickAverageY;
-    
-    union
-    {
-        GameButtonState buttons[13];
-        
-        struct
-        {
-            GameButtonState moveUp;
-            GameButtonState moveDown;
-            GameButtonState moveLeft;
-            GameButtonState moveRight;
-            
-            GameButtonState run;
-            
-            GameButtonState actionUp;
-            GameButtonState actionDown;
-            GameButtonState actionLeft;
-            GameButtonState actionRight;
-            
-            GameButtonState leftShoulder;
-            GameButtonState rightShoulder;
-            
-            GameButtonState back;
-            GameButtonState start;
-            
-            // IMPORTANT(yuval): Add new buttons before this ButtonState
-            GameButtonState terminator;
-        };
-    };
-};
-
-struct GameInput
-{
-    f32 dtForFrame;
-    
-    GameButtonState mouseButtons[5];
-    s32 mouseX, mouseY, mouseZ;
-    
-    GameController controllers[5];
-};
-
-struct GameMemory
-{
-    b32 isInitialized;
-    
-    void* permanentStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
-    u64 permanentStorageSize;
-    
-    void* transientStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
-    u64 transientStorageSize;
-    
-    MemoryArena loggingArena;
-    
-    PlatformGetDateTimeType* PlatformGetDateTime;
-    DEBUGPlatformFreeFileMemoryType* DEBUGPlatformFreeFileMemory;
-    DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile;
-    DEBUGPlatformWriteEntireFileType* DEBUGPlatformWriteEntireFile;
-};
-
-/* GameUpdateAndRender gets 4 thing from the Platform:
-   1. Timing
-   2. Controller/Keyboard input
-   3. Bitmap buffer to use
-   4. Sound buffer to use
-*/
-#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* thread, GameMemory* memory, \
-GameInput* input, \
-GameOffscreenBuffer* offscreenBuffer)
-typedef GAME_UPDATE_AND_RENDER(GameUpdateAndRenderType);
-
-#define GAME_GET_SOUND_SAMPLES(name) void name(ThreadContext* thread, GameMemory* memory, \
-GameSoundOutputBuffer* soundBuffer)
-typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
-
 
 /////////////////////////////
 //          Game           //
@@ -224,6 +67,9 @@ struct World
 
 struct GameState
 {
+    MemoryArena loggingArena;
+    MemoryArena worldArena;
+    
     World* world;
     TileMapPosition playerP;
     

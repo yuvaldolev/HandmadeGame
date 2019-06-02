@@ -26,7 +26,7 @@ RecanonicalizePosition(TileMap* tileMap, TileMapPosition pos)
 }
 
 internal TileChunk*
-GetTileChunk(TileMap* tileMap, s32 tileChunkX, s32 tileChunkY)
+GetTileChunk(TileMap* tileMap, u32 tileChunkX, u32 tileChunkY)
 {
     TileChunk* tileChunk = 0;
     
@@ -40,19 +40,6 @@ GetTileChunk(TileMap* tileMap, s32 tileChunkX, s32 tileChunkY)
     return tileChunk;
 }
 
-
-internal u32
-GetTileValueUnchecked(TileMap* tileMap, TileChunk* tileChunk, u32 tileX, u32 tileY)
-{
-    Assert(tileChunk);
-    Assert(tileX < tileMap->chunkDim);
-    Assert(tileY < tileMap->chunkDim);
-    
-    u32 tileValue = tileChunk->tiles[tileY * tileMap->chunkDim + tileX];
-    
-    return tileValue;
-}
-
 inline TileChunkPosition
 GetChunkPositionFor(TileMap* tileMap, u32 absTileX, u32 absTileY)
 {
@@ -64,6 +51,18 @@ GetChunkPositionFor(TileMap* tileMap, u32 absTileX, u32 absTileY)
     result.relTileY = absTileY & tileMap->chunkMask;
     
     return result;
+}
+
+internal u32
+GetTileValueUnchecked(TileMap* tileMap, TileChunk* tileChunk, u32 tileX, u32 tileY)
+{
+    Assert(tileChunk);
+    Assert(tileX < tileMap->chunkDim);
+    Assert(tileY < tileMap->chunkDim);
+    
+    u32 tileValue = tileChunk->tiles[tileY * tileMap->chunkDim + tileX];
+    
+    return tileValue;
 }
 
 internal b32
@@ -87,6 +86,44 @@ GetTileValue(TileMap* tileMap, u32 absTileX, u32 absTileY)
     u32 tileChunkValue = GetTileValue(tileMap, tileChunk, chunkPos.relTileX, chunkPos.relTileY);
     
     return tileChunkValue;
+}
+
+internal u32
+SetTileValueUnchecked(TileMap* tileMap, TileChunk* tileChunk,
+                      u32 tileX, u32 tileY, u32 tileValue)
+{
+    Assert(tileChunk);
+    Assert(tileX < tileMap->chunkDim);
+    Assert(tileY < tileMap->chunkDim);
+    
+    tileChunk->tiles[tileY * tileMap->chunkDim + tileX] = tileValue;
+    
+    return tileValue;
+}
+
+
+internal void
+SetTileValue(TileMap* tileMap, TileChunk* tileChunk,
+             u32 tileX, u32 tileY, u32 tileValue)
+{
+    if (tileChunk)
+    {
+        SetTileValueUnchecked(tileMap, tileChunk, tileX, tileY, tileValue);
+    }
+}
+
+internal void
+SetTileValue(MemoryArena* arena, TileMap* tileMap,
+             u32 absTileX, u32 absTileY, u32 tileValue)
+{
+    TileChunkPosition chunkPos = GetChunkPositionFor(tileMap, absTileX, absTileY);
+    TileChunk* tileChunk = GetTileChunk(tileMap, chunkPos.tileChunkY, chunkPos.tileChunkX);
+    
+    // TODO(yuval): On-demand tile chunk creation
+    Assert(tileChunk);
+    
+    SetTileValue(tileMap, tileChunk, chunkPos.relTileX,
+                 chunkPos.relTileY, tileValue);
 }
 
 internal b32

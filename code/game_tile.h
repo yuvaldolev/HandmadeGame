@@ -37,8 +37,8 @@ struct TileMap
     s32 tileSideInPixels;
     f32 metersToPixels;
     
-    s32 tileChunkCountX;
-    s32 tileChunkCountY;
+    u32 tileChunkCountX;
+    u32 tileChunkCountY;
     
     TileChunk* tileChunks;
 };

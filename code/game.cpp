@@ -221,41 +221,51 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     if (!memory->isInitialized)
     {
-        InitializeArena(&memory->loggingArena,
+        InitializeArena(&gameState->loggingArena,
                         (u8*)memory->permanentStorage + sizeof(GameState),
                         (u64)(memory->permanentStorageSize * 0.0001f));
         
-        LogInit(&memory->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
+        LogInit(&gameState->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
         
-        gameState->playerP.absTileX = 3;
+        gameState->playerP.absTileX = 1;
         gameState->playerP.absTileY = 3;
         gameState->playerP.tileRelX = 5.0f;
         gameState->playerP.tileRelY = 5.0f;
         
-        gameState->world = ;
-        World* world = gameState->world;
-        world->tileMap = ;
+        InitializeArena(&gameState->worldArena,
+                        gameState->loggingArena.base + gameState->loggingArena.size,
+                        memory->permanentStorageSize - sizeof(GameState) -
+                        gameState->loggingArena.size);
         
-        TileMap tileMap;
+        gameState->world = PushStruct(&gameState->worldArena, World);
+        World* world = gameState->world;
+        world->tileMap = PushStruct(&gameState->worldArena, TileMap);
+        
+        TileMap* tileMap = world->tileMap;
         
         // NOTE: This is set to be using 256x256 tile chunks
         tileMap->chunkShift = 8;
         tileMap->chunkMask = (1 << tileMap->chunkShift) - 1;
-        tileMap->chunkDim = TILE_CHUNK_DIM;
+        tileMap->chunkDim = (1 << tileMap->chunkShift);
         
-        tileMap->tileChunkCountX = 1;
-        tileMap->tileChunkCountY = 1;
+        tileMap->tileChunkCountX = 4;
+        tileMap->tileChunkCountY = 4;
         
-        TileChunk tileChunk;
-        tileChunk.tiles = (u32*)tempTiles;
-        tileMap->tileChunks = &tileChunk;
+        tileMap->tileChunks = PushArray(&gameState->worldArena, TileChunk,
+                                        tileMap->tileChunkCountX * tileMap->tileChunkCountY);
+        
+        for (u32 Y = 0; Y < tileMap->tileChunkCountY; ++Y)
+        {
+            for (u32 X = 0; X < tileMap->tileChunkCountX; ++X)
+            {
+                tileMap->tileChunks[Y * tileMap->tileChunkCountX + X].tiles =
+                    PushArray(&gameState->worldArena, u32, tileMap->chunkDim * tileMap->chunkDim);
+            }
+        }
         
         tileMap->tileSideInMeters = 1.4f;
         tileMap->tileSideInPixels = 60;
         tileMap->metersToPixels = (f32)tileMap->tileSideInPixels / tileMap->tileSideInMeters;
-        
-        f32 playerHeight = 1.4f;
-        f32 playerWidth = playerHeight * 0.75f;
         
         f32 lowerLeftX = -(f32)tileMap->tileSideInPixels / 2;
         f32 lowerLeftY = (f32)offscreenBuffer->height;
@@ -272,9 +282,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     for (u32 tileX = 0; tileX < TILES_PER_WIDTH; ++tileX)
                     {
                         u32 absTileX = screenX * TILES_PER_WIDTH + tileX;
-                        u32 absTileY = screenY * TILES_PER_WIDTH + tileY;
+                        u32 absTileY = screenY * TILES_PER_HEIGHT + tileY;
                         
-                        SetTileValue(world->tileMap, absTileX, absTileY, 0);
+                        SetTileValue(&gameState->worldArena, world->tileMap,
+                                     absTileX, absTileY,
+                                     ((tileX == tileY) && (tileY % 2)) ? 1 : 0);
                     }
                 }
             }
@@ -302,6 +314,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         memory->isInitialized = true;
     }
+    
+    f32 playerHeight = 1.4f;
+    f32 playerWidth = playerHeight * 0.75f;
+    
+    World* world = gameState->world;
+    TileMap* tileMap = world->tileMap;
     
     for (u32 controllerIndex = 0;
          controllerIndex < ArrayCount(input->controllers);
@@ -362,19 +380,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             TileMapPosition newPlayerP = gameState->playerP;
             newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
             newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
-            newPlayerP = RecanonicalizePosition(&tileMap, newPlayerP);
+            newPlayerP = RecanonicalizePosition(tileMap, newPlayerP);
             
             TileMapPosition playerLeft = newPlayerP;
             playerLeft.tileRelX -= 0.5f * playerWidth;
-            playerLeft = RecanonicalizePosition(&tileMap, playerLeft);
+            playerLeft = RecanonicalizePosition(tileMap, playerLeft);
             
             TileMapPosition playerRight = newPlayerP;
             playerRight.tileRelX += 0.5f * playerWidth;
-            playerRight = RecanonicalizePosition(&tileMap, playerRight);
+            playerRight = RecanonicalizePosition(tileMap, playerRight);
             
-            if (IsTileMapPointEmpty(&tileMap, newPlayerP) &&
-                IsTileMapPointEmpty(&tileMap, playerLeft) &&
-                IsTileMapPointEmpty(&tileMap, playerRight))
+            if (IsTileMapPointEmpty(tileMap, newPlayerP) &&
+                IsTileMapPointEmpty(tileMap, playerLeft) &&
+                IsTileMapPointEmpty(tileMap, playerRight))
             {
                 gameState->playerP = newPlayerP;
             }
@@ -392,7 +410,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             u32 column = gameState->playerP.absTileX + relColumn;
             u32 row =  gameState->playerP.absTileY + relRow;
-            u32 tileID = GetTileValue(&tileMap, column, row);
+            u32 tileID = GetTileValue(tileMap, column, row);
             
             s32 tileValue = tileID;
             f32 tileColor = 0.5f;
@@ -411,15 +429,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             
             if (tileValue != 0)
             {
-                f32 cenX = screenCenterX - gameState->playerP.tileRelX * tileMap.metersToPixels +
-                    (f32)(relColumn * tileMap.tileSideInPixels);
-                f32 cenY = screenCenterY + gameState->playerP.tileRelY * tileMap.metersToPixels -
-                    (f32)(relRow * tileMap.tileSideInPixels);
+                f32 cenX = screenCenterX - gameState->playerP.tileRelX * tileMap->metersToPixels +
+                    (f32)(relColumn * tileMap->tileSideInPixels);
+                f32 cenY = screenCenterY + gameState->playerP.tileRelY * tileMap->metersToPixels -
+                    (f32)(relRow * tileMap->tileSideInPixels);
                 
-                f32 minX = cenX - 0.5f * tileMap.tileSideInPixels;
-                f32 minY = cenY - 0.5f * tileMap.tileSideInPixels;
-                f32 maxX = cenX + 0.5f * tileMap.tileSideInPixels;
-                f32 maxY = cenY + 0.5f * tileMap.tileSideInPixels;
+                f32 minX = cenX - 0.5f * tileMap->tileSideInPixels;
+                f32 minY = cenY - 0.5f * tileMap->tileSideInPixels;
+                f32 maxX = cenX + 0.5f * tileMap->tileSideInPixels;
+                f32 maxY = cenY + 0.5f * tileMap->tileSideInPixels;
                 
                 DrawRectangle(offscreenBuffer,
                               minX, minY, maxX, maxY,
@@ -432,13 +450,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerG = 1.0f;
     f32 playerB = 0.0f;
     
-    f32 playerLeft = screenCenterX - 0.5f * playerWidth * tileMap.metersToPixels;
-    f32 playerTop = screenCenterY - playerHeight * tileMap.metersToPixels;
+    f32 playerLeft = screenCenterX - 0.5f * playerWidth * tileMap->metersToPixels;
+    f32 playerTop = screenCenterY - playerHeight * tileMap->metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,
-                  playerLeft + playerWidth * tileMap.metersToPixels,
-                  playerTop + playerHeight * tileMap.metersToPixels,
+                  playerLeft + playerWidth * tileMap->metersToPixels,
+                  playerTop + playerHeight * tileMap->metersToPixels,
                   playerR, playerG, playerB);
     
     HeroBitmap* heroBitmap = &gameState->heroBitmap[gameState->facingDirection];
@@ -452,25 +470,4 @@ extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
 {
     GameState* gameState = (GameState*)memory->permanentStorage;
     GameOutputSound(gameState, soundBuffer, 1);
-}
-
-internal void
-RenderGradient(GameOffscreenBuffer* buffer, s32 xOffset, s32 yOffset)
-{
-    u8* row = (u8*)buffer->memory;
-    
-    for (s32 y = 0; y < buffer->height; ++y)
-    {
-        u32* pixel = (u32*)row;
-        
-        for (s32 x = 0; x < buffer->width; ++x)
-        {
-            u8 Blue = (u8)(x + xOffset);
-            u8 Green = (u8)(y + yOffset);
-            
-            *pixel++ = (Green << 16) | Blue;
-        }
-        
-        row += buffer->pitch;
-    }
 }

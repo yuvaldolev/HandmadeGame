@@ -1,7 +1,7 @@
 #if !defined(GAME_MEMORY_H)
 
 #define PushStruct(arena, type) (type*)PushSize_(arena, sizeof(type))
-#define PushArray(arena, type, count) (type*)PushSize_(arena, count * sizeof(type))
+#define PushArray(arena, type, count) (type*)PushSize_(arena, (count) * sizeof(type))
 #define PushSize(arena, size) PushSize_(arena, size)
 
 struct MemoryArena
