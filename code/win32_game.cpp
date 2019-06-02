@@ -1,4 +1,4 @@
-#include "game.h"
+#include "game_platform.h"
 
 #include <windows.h>
 #include <dsound.h>

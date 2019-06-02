@@ -7,16 +7,18 @@ struct TileMapPosition
     // and the low bits are the tile index in the chunk.
     u32 absTileX;
     u32 absTileY;
+    u32 absTileZ;
     
-    // TODO(yuval, eran): Maybe @Rename these to offset X / Y
-    f32 tileRelX;
-    f32 tileRelY;
+    // NOTE: These are the offsets from the tile center
+    f32 offsetX;
+    f32 offsetY;
 };
 
 struct TileChunkPosition
 {
     u32 tileChunkX;
     u32 tileChunkY;
+    u32 tileChunkZ;
     
     u32 relTileX;
     u32 relTileY;
@@ -34,12 +36,10 @@ struct TileMap
     u32 chunkDim;
     
     f32 tileSideInMeters;
-    s32 tileSideInPixels;
-    f32 metersToPixels;
     
-    s32 tileChunkCountX;
-    s32 tileChunkCountY;
-    
+    u32 tileChunkCountX;
+    u32 tileChunkCountY;
+    u32 tileChunkCountZ;
     TileChunk* tileChunks;
 };
 

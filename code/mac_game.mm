@@ -1,6 +1,6 @@
 #include <Cocoa/Cocoa.h>
 
-#include "game.h"
+#include "game_platform.h"
 
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
