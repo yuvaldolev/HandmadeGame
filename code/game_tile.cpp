@@ -19,8 +19,8 @@ RecanonicalizePosition(TileMap* tileMap, TileMapPosition pos)
 {
     TileMapPosition result = pos;
     
-    RecanonicalizeCoord(tileMap, &result.absTileX, &result.tileRelX);
-    RecanonicalizeCoord(tileMap, &result.absTileY, &result.tileRelY);
+    RecanonicalizeCoord(tileMap, &result.absTileX, &result.offsetX);
+    RecanonicalizeCoord(tileMap, &result.absTileY, &result.offsetY);
     
     return result;
 }

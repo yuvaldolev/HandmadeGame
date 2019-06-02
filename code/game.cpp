@@ -231,8 +231,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         gameState->playerP.absTileX = 1;
         gameState->playerP.absTileY = 3;
-        gameState->playerP.tileRelX = 5.0f;
-        gameState->playerP.tileRelY = 5.0f;
+        gameState->playerP.offsetX = 5.0f;
+        gameState->playerP.offsetY = 5.0f;
         
         InitializeArena(&gameState->worldArena,
                         gameState->loggingArena.base + gameState->loggingArena.size,
@@ -492,16 +492,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             dPlayerY *= playerSpeed;
             
             TileMapPosition newPlayerP = gameState->playerP;
-            newPlayerP.tileRelX += dPlayerX * input->dtForFrame;
-            newPlayerP.tileRelY += dPlayerY * input->dtForFrame;
+            newPlayerP.offsetX += dPlayerX * input->dtForFrame;
+            newPlayerP.offsetY += dPlayerY * input->dtForFrame;
             newPlayerP = RecanonicalizePosition(tileMap, newPlayerP);
             
             TileMapPosition playerLeft = newPlayerP;
-            playerLeft.tileRelX -= 0.5f * playerWidth;
+            playerLeft.offsetX -= 0.5f * playerWidth;
             playerLeft = RecanonicalizePosition(tileMap, playerLeft);
             
             TileMapPosition playerRight = newPlayerP;
-            playerRight.tileRelX += 0.5f * playerWidth;
+            playerRight.offsetX += 0.5f * playerWidth;
             playerRight = RecanonicalizePosition(tileMap, playerRight);
             
             if (IsTileMapPointEmpty(tileMap, newPlayerP) &&
@@ -560,9 +560,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     tileColor = 0.0f;
                 }
                 
-                f32 cenX = screenCenterX - gameState->playerP.tileRelX * metersToPixels +
+                f32 cenX = screenCenterX - gameState->playerP.offsetX * metersToPixels +
                     (f32)(relColumn * tileSideInPixels);
-                f32 cenY = screenCenterY + gameState->playerP.tileRelY * metersToPixels -
+                f32 cenY = screenCenterY + gameState->playerP.offsetY * metersToPixels -
                     (f32)(relRow * tileSideInPixels);
                 
                 f32 minX = cenX - 0.5f * tileSideInPixels;

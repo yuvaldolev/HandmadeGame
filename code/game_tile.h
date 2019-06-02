@@ -9,9 +9,9 @@ struct TileMapPosition
     u32 absTileY;
     u32 absTileZ;
     
-    // TODO(yuval, eran): Maybe @Rename these to offset X / Y
-    f32 tileRelX;
-    f32 tileRelY;
+    // NOTE: These are the offsets from the tile center
+    f32 offsetX;
+    f32 offsetY;
 };
 
 struct TileChunkPosition
