@@ -33,6 +33,14 @@ TruncateF32ToS32(f32 value)
     return result;
 }
 
+inline u32
+SafeTruncateToU32(u64 value)
+{
+    // TODO(yuval & eran): Defines for size limits
+    Assert(value <= 0xFFFFFFFF);
+    return (u32)value;
+}
+
 inline f32
 Sin(f32 angle)
 {

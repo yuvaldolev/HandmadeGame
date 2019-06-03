@@ -5,7 +5,6 @@ extern "C" {
 #endif
     
 #include "game_types.h"
-#include "game_shared.h"
     
     ////////////////////////////////////
     //          Platform API          //
@@ -14,47 +13,6 @@ extern "C" {
     {
         s32 placeHolder;
     } ThreadContext;
-    
-    // NOTE(yuval): Services that the platform provides to the game
-    typedef struct PlatformDateTime
-    {
-        u16 day;
-        u16 month;
-        u16 year;
-        
-        u16 hour;
-        u16 minute;
-        u16 second;
-        u16 milliseconds;
-    } PlatformDateTime;
-    
-#define PLATFORM_GET_DATE_TIME(name) PlatformDateTime name()
-    typedef PLATFORM_GET_DATE_TIME(PlatformGetDateTimeType);
-    
-#ifdef GAME_INTERNAL
-    /*
-    IMPORTANT(yuval):
-    This code is NOT shipping code -
-    They are blocking and write donesn't protect against lost data!
-    */
-    typedef struct
-    {
-        void* contents;
-        u32 contentsSize;
-    } DEBUGReadFileResult;
-    
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(ThreadContext* thread, void* memory)
-    typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemoryType);
-    
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(ThreadContext* thread, \
-    const char* fileName)
-    typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFileType);
-    
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(ThreadContext* thread, \
-    const char* fileName, \
-    void* memory, u32 memorySize)
-    typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
-#endif
     
     // NOTE(yuval): Services that the game provides to the platform
     typedef struct GameSoundOutputBuffer
@@ -127,6 +85,67 @@ extern "C" {
         GameController controllers[5];
     } GameInput;
     
+    // NOTE(yuval): Services that the platform provides to the game
+#define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* title, const char* message)
+    typedef PLATFORM_DISPLAY_MESSAGE_BOX(PlatformDisplayMessageBoxType);
+    
+    typedef struct PlatformDateTime
+    {
+        u16 day;
+        u16 month;
+        u16 year;
+        
+        u16 hour;
+        u16 minute;
+        u16 second;
+        u16 milliseconds;
+    } PlatformDateTime;
+    
+#define PLATFORM_GET_DATE_TIME(name) PlatformDateTime name()
+    typedef PLATFORM_GET_DATE_TIME(PlatformGetDateTimeType);
+    
+#ifdef GAME_INTERNAL
+    /*
+    IMPORTANT(yuval):
+    This code is NOT shipping code -
+    The functions are blocking and write doesn't protect against lost data!
+    */
+    typedef struct
+    {
+        void* contents;
+        u32 contentsSize;
+    } DEBUGReadFileResult;
+    
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(ThreadContext* thread, void* memory)
+    typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemoryType);
+    
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(ThreadContext* thread, \
+    const char* fileName)
+    typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFileType);
+    
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(ThreadContext* thread, \
+    const char* fileName, \
+    void* memory, u32 memorySize)
+    typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
+#endif
+    
+    typedef struct PlatformAPI
+    {
+        PlatformDisplayMessageBoxType* DisplayMessageBox;
+        
+        PlatformGetDateTimeType* GetDateTime;
+        
+        DEBUGPlatformFreeFileMemoryType* DEBUGFreeFileMemory;
+        DEBUGPlatformReadEntireFileType* DEBUGReadEntireFile;
+        DEBUGPlatformWriteEntireFileType* DEBUGWriteEntireFile;
+    } PlatformAPI;
+    
+    extern PlatformAPI platform;
+    
+#include "game_assert.h"
+#include "game_shared.h"
+#include "game_intrinsics.h"
+    
     typedef struct GameMemory
     {
         b32 isInitialized;
@@ -137,10 +156,7 @@ extern "C" {
         void* transientStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
         u64 transientStorageSize;
         
-        PlatformGetDateTimeType* PlatformGetDateTime;
-        DEBUGPlatformFreeFileMemoryType* DEBUGPlatformFreeFileMemory;
-        DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile;
-        DEBUGPlatformWriteEntireFileType* DEBUGPlatformWriteEntireFile;
+        PlatformAPI platformAPI;
     } GameMemory;
     
     /* GameUpdateAndRender gets 4 thing from the Platform:

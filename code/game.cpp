@@ -207,18 +207,18 @@ GameOutputSound(GameState* gameState, GameSoundOutputBuffer* buffer, const s32 t
     }
 }
 
+PlatformAPI platform;
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+    platform = memory->platformAPI;
+    
     Assert((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) ==
            ArrayCount(input->controllers[0].buttons));
     
     Assert(sizeof(GameMemory) <= memory->permanentStorageSize);
     
     GameState* gameState = (GameState*)memory->permanentStorage;
-    
-    // TODO(yuval & eran): @Temporary
-    globalLogMemory = memory;
-    globalLogFormatMemory = memory;
     
     if (!memory->isInitialized)
     {
@@ -227,8 +227,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         (u64)(memory->permanentStorageSize * 0.0001f));
         
         LogInit(&gameState->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
-        
-        LogDebug("Is LLVM: %d", COMPILER_LLVM);
         
         gameState->playerP.absTileX = 1;
         gameState->playerP.absTileY = 3;
@@ -401,23 +399,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
         
-        gameState->backdrop = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_background.bmp");
+        gameState->backdrop = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_background.bmp");
         
-        gameState->heroBitmaps[0].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_head.bmp");
-        gameState->heroBitmaps[0].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_cape.bmp");
-        gameState->heroBitmaps[0].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_right_torso.bmp");
+        gameState->heroBitmaps[0].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_right_head.bmp");
+        gameState->heroBitmaps[0].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_right_cape.bmp");
+        gameState->heroBitmaps[0].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_right_torso.bmp");
         
-        gameState->heroBitmaps[1].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_head.bmp");
-        gameState->heroBitmaps[1].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_cape.bmp");
-        gameState->heroBitmaps[1].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_back_torso.bmp");
+        gameState->heroBitmaps[1].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_back_head.bmp");
+        gameState->heroBitmaps[1].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_back_cape.bmp");
+        gameState->heroBitmaps[1].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_back_torso.bmp");
         
-        gameState->heroBitmaps[2].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_head.bmp");
-        gameState->heroBitmaps[2].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_cape.bmp");
-        gameState->heroBitmaps[2].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_left_torso.bmp");
+        gameState->heroBitmaps[2].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_left_head.bmp");
+        gameState->heroBitmaps[2].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_left_cape.bmp");
+        gameState->heroBitmaps[2].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_left_torso.bmp");
         
-        gameState->heroBitmaps[3].head = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_head.bmp");
-        gameState->heroBitmaps[3].cape = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_cape.bmp");
-        gameState->heroBitmaps[3].torso = DEBUGLoadBMP(thread, memory->DEBUGPlatformReadEntireFile, "../data/test/test_hero_front_torso.bmp");
+        gameState->heroBitmaps[3].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_front_head.bmp");
+        gameState->heroBitmaps[3].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_front_cape.bmp");
+        gameState->heroBitmaps[3].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_front_torso.bmp");
         
         gameState->facingDirection = 3;
         

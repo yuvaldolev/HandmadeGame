@@ -29,6 +29,7 @@
 #else
 #error Optimizations are not available for this compiler yet!!!
 #endif
+
 //////////////////////////////
 //          Types           //
 //////////////////////////////
@@ -40,12 +41,6 @@
 #define local_persist static
 
 #define Pi32 3.14159265359f
-
-#if GAME_SLOW
-#define Assert(expression) if (!(expression)) { *(volatile int*)0 = 0; }
-#else
-#define Assert(expression)
-#endif
 
 // TODO(yuval & eran): Move this to another file
 #define Kilobytes(value) (1024LL * (value))
@@ -93,14 +88,6 @@ struct String
     umm count;
     memory_index memorySize;
 };
-
-inline u32
-SafeTruncateToU32(u64 value)
-{
-    // TODO(yuval & eran): Defines for size limits
-    Assert(value <= 0xFFFFFFFF);
-    return (u32)value;
-}
 
 inline u32
 StringLength(const char* string)

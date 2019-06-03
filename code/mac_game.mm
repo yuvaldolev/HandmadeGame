@@ -20,6 +20,8 @@
 
 #include "mac_game.h"
 
+PlatformAPI platform;
+
 global_variable f32 globalAspectRatio;
 global_variable b32 globalRunning;
 global_variable b32 globalPause;
@@ -73,6 +75,18 @@ global_variable GameController globalGamepadController;
     printf("Window Resized!\n");
 }
 @end
+
+PLATFORM_DISPLAY_MESSAGE_BOX(PlatformDisplayMessageBox)
+{
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    
+    NSString* titleString = [NSString stringWithUTF8String:title];
+    NSString* messageString = [NSString stringWithUTF8String:message];
+    [alert setMessageText:titleString];
+    [alert setInformativeText:messageString];
+    
+    [alert runModal];
+}
 
 PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
 {
@@ -1052,6 +1066,12 @@ main(int argc, const char* argv[])
 {
     @autoreleasepool
     {
+        platform.DisplayMessageBox = PlatformDisplayMessageBox;
+        platform.GetDateTime = PlatformGetDateTime;
+        platform.DEBUGFreeFileMemory =  DEBUGPlatformFreeFileMemory;
+        platform.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
+        platform.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
+        
         MacState macState = { };
         
         MacGetAppFileName(&macState);
@@ -1150,10 +1170,7 @@ main(int argc, const char* argv[])
         gameMemory.permanentStorageSize = Megabytes(64);
         gameMemory.transientStorageSize = Gigabytes(1);
         
-        gameMemory.PlatformGetDateTime = PlatformGetDateTime;
-        gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
-        gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
-        gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+        gameMemory.platformAPI = platform;
         
         macState.totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
         

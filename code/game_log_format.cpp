@@ -11,8 +11,7 @@ struct LogFormatter
     LogFormatter* next;
 };
 
-global_variable GameMemory* globalLogFormatMemory;
-global_variable MemoryArena* globalArena = 0;
+global_variable MemoryArena* globalLogFormatArena = 0;
 global_variable LogFormatter* globalFirstFormatter;
 
 internal void
@@ -72,7 +71,7 @@ LOG_FORMAT_FN(LogFormatNewLine)
 internal
 LOG_FORMAT_FN(LogFormatDate)
 {
-    PlatformDateTime dateTime = globalLogFormatMemory->PlatformGetDateTime();
+    PlatformDateTime dateTime = platform.GetDateTime();
     umm bytesWritten = FormatString(msg->formattedAt, msg->remainingFormattingSpace,
                                     "%02u/%02u/%04u %02u:%02u:%02u:%03u",
                                     dateTime.day, dateTime.month, dateTime.year,
@@ -239,7 +238,7 @@ LogFormatGetNextChars(const char** fmt)
         
         while (currChar && currChar != '%')
         {
-            char* memory = (char*)PushSize(globalArena, sizeof(char));
+            char* memory = (char*)PushSize(globalLogFormatArena, sizeof(char));
             *memory = currChar;
             
             if (!dataInitialized)
@@ -353,7 +352,7 @@ LogFormatGetNextFormatter(const char** fmt)
             
             if (formatFn)
             {
-                formatter = PushStruct(globalArena, LogFormatter);
+                formatter = PushStruct(globalLogFormatArena, LogFormatter);
                 // ZeroSize(format, sizeof(LogFormat)); TODO(yuval & eran): Use this
                 formatter->fn = formatFn;
                 formatter->chars = formatterChars;
@@ -370,7 +369,7 @@ LogFormatSetPattern(MemoryArena* arena, const char* fmt)
     if (fmt)
     {
         // TODO(yuval & eran): Call LogFormatClean()
-        globalArena = arena;
+        globalLogFormatArena = arena;
         globalFirstFormatter = LogFormatGetNextFormatter(&fmt);
         
         LogFormatter* currFormatter = globalFirstFormatter;

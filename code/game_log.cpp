@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 global_variable LogLevelEnum globalMinLevel;
-global_variable GameMemory* globalLogMemory;
 
 void
 LogInit(MemoryArena* arena,
