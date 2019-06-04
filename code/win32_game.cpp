@@ -1011,19 +1011,7 @@ Win32GetLastWriteTime(const char* fileName)
 {
     FILETIME lastWriteTime = { };
     
-#if 0
-    WIN32_FIND_DATAA findData;
-    HANDLE findHandle = FindFirstFileA(fileName, &findData);
-    
-    if (findHandle != INVALID_HANDLE_VALUE)
-    {
-        lastWriteTime = findData.ftLastWriteTime;
-        FindClose(findHandle);
-    }
-#endif
-    
     WIN32_FILE_ATTRIBUTE_DATA data;
-    
     if (GetFileAttributesExA(fileName, GetFileExInfoStandard, &data))
     {
         lastWriteTime = data.ftLastWriteTime;
@@ -1034,26 +1022,31 @@ Win32GetLastWriteTime(const char* fileName)
 
 internal Win32GameCode
 Win32LoadGameCode(const char* sourceGameCodeDLLFullPath,
-                  const char* tempGameCodeDLLFullPath)
+                  const char* tempGameCodeDLLFullPath,
+                  const char* lockFileName)
 {
     Win32GameCode result = { };
     
-    result.DLLLastWriteTime = Win32GetLastWriteTime(sourceGameCodeDLLFullPath);
-    
-    CopyFileA(sourceGameCodeDLLFullPath, tempGameCodeDLLFullPath, FALSE);
-    result.gameCodeDLL = LoadLibrary(tempGameCodeDLLFullPath);
-    
-    if (result.gameCodeDLL)
+    WIN32_FILE_ATTRIBUTE_DATA ignored;
+    if (!GetFileAttributesExA(lockFileName, GetFileExInfoStandard, &ignored))
     {
-        result.UpdateAndRender = (GameUpdateAndRenderType*)
-            GetProcAddress(result.gameCodeDLL, "GameUpdateAndRender");
-        result.GetSoundSamples = (GameGetSoundSamplesType*)
-            GetProcAddress(result.gameCodeDLL, "GameGetSoundSamples");
-        result.Log = (LogType*)
-            GetProcAddress(result.gameCodeDLL, "Log");
+        result.DLLLastWriteTime = Win32GetLastWriteTime(sourceGameCodeDLLFullPath);
         
-        result.isValid = (result.UpdateAndRender &&
-                          result.GetSoundSamples);
+        CopyFileA(sourceGameCodeDLLFullPath, tempGameCodeDLLFullPath, FALSE);
+        result.gameCodeDLL = LoadLibrary(tempGameCodeDLLFullPath);
+        
+        if (result.gameCodeDLL)
+        {
+            result.UpdateAndRender = (GameUpdateAndRenderType*)
+                GetProcAddress(result.gameCodeDLL, "GameUpdateAndRender");
+            result.GetSoundSamples = (GameGetSoundSamplesType*)
+                GetProcAddress(result.gameCodeDLL, "GameGetSoundSamples");
+            result.Log = (LogType*)
+                GetProcAddress(result.gameCodeDLL, "Log");
+            
+            result.isValid = (result.UpdateAndRender &&
+                              result.GetSoundSamples);
+        }
     }
     
     if (!result.isValid)
@@ -1101,6 +1094,11 @@ WinMain(HINSTANCE instance,
     Win32BuildEXEPathFileName(tempGameCodeDLLFullPath,
                               sizeof(tempGameCodeDLLFullPath),
                               &win32State, "game_temp.dll");
+    
+    char gameCodeLockFullPath[WIN32_STATE_FILE_NAME_COUNT];
+    Win32BuildEXEPathFileName(gameCodeLockFullPath,
+                              sizeof(gameCodeLockFullPath),
+                              &win32State, "lock.tmp");
     
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);
@@ -1282,7 +1280,8 @@ WinMain(HINSTANCE instance,
                 u32 DEBUGTimeMarkerIndex = 0;
                 
                 Win32GameCode game = Win32LoadGameCode(sourceGameCodeDLLFullPath,
-                                                       tempGameCodeDLLFullPath);
+                                                       tempGameCodeDLLFullPath,
+                                                       gameCodeLockFullPath);
                 
                 globalRunning = true;
                 globalPause = false;
@@ -1299,7 +1298,8 @@ WinMain(HINSTANCE instance,
                     {
                         Win32UnloadGameCode(&game);
                         game = Win32LoadGameCode(sourceGameCodeDLLFullPath,
-                                                 tempGameCodeDLLFullPath);
+                                                 tempGameCodeDLLFullPath,
+                                                 gameCodeLockFullPath);
                     }
                     
                     GameController* oldKeyboardController = &oldInput->controllers[0];

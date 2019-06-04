@@ -60,35 +60,46 @@ DEBUGLoadBMP(ThreadContext* thread,
 }
 
 internal void
-DrawBitmap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap, f32 realX, f32 realY)
+DrawBitmap(GameOffscreenBuffer* offscreenBuffer, LoadedBitmap* bitmap,
+           f32 realX, f32 realY,
+           s32 alignX = 0, s32 alignY = 0)
 {
+    realX -= (f32)alignX;
+    realY -= (f32)alignY;
+    
     s32 minX = RoundF32ToS32(realX);
     s32 minY = RoundF32ToS32(realY);
-    s32 maxX = RoundF32ToS32((f32)bitmap->width + minX);
-    s32 maxY = RoundF32ToS32((f32)bitmap->height + minY);
+    s32 maxX = RoundF32ToS32(realX + (f32)bitmap->width);
+    s32 maxY = RoundF32ToS32(realY + (f32)bitmap->height);
+    
+    s32 sourceOffsetX = 0;
+    s32 sourceOffsetY = 0;
     
     if (minX < 0)
     {
+        sourceOffsetX = -minX;
         minX = 0;
     }
     
     if (minY < 0)
     {
+        sourceOffsetY = -minY;
         minY = 0;
     }
     
     if (maxX > offscreenBuffer->width)
     {
-        maxX= offscreenBuffer->width;
+        maxX = offscreenBuffer->width;
     }
     
-    if (maxY> offscreenBuffer->height)
+    if (maxY > offscreenBuffer->height)
     {
         maxY = offscreenBuffer->height;
     }
     
-    u32* sourceRow = bitmap->pixels + bitmap->width *
-        (bitmap->height - 1);
+    u32* sourceRow = bitmap->pixels + bitmap->width * (bitmap->height - 1);
+    sourceRow += -sourceOffsetY * bitmap->width + sourceOffsetX;
+    
     u8* destRow = ((u8*)offscreenBuffer->memory + offscreenBuffer->bytesPerPixel * minX +
                    offscreenBuffer->pitch * minY);
     
@@ -227,6 +238,55 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                         (u64)(memory->permanentStorageSize * 0.0001f));
         
         LogInit(&gameState->loggingArena, LogLevelDebug, "[%V] [%d] %f:%U:%L: %m%n");
+        
+        gameState->backdrop = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                           "../data/test/test_background.bmp");
+        
+        HeroBitmaps* bitmaps = gameState->heroBitmaps;
+        
+        bitmaps->head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_right_head.bmp");
+        bitmaps->cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_right_cape.bmp");
+        bitmaps->torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                      "../data/test/test_hero_right_torso.bmp");
+        bitmaps->alignX = 67;
+        bitmaps->alignY = 182;
+        ++bitmaps;
+        
+        bitmaps->head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_back_head.bmp");
+        bitmaps->cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_back_cape.bmp");
+        bitmaps->torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                      "../data/test/test_hero_back_torso.bmp");
+        bitmaps->alignX = 72;
+        bitmaps->alignY = 182;
+        ++bitmaps;
+        
+        bitmaps->head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_left_head.bmp");
+        bitmaps->cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_left_cape.bmp");
+        bitmaps->torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                      "../data/test/test_hero_left_torso.bmp");
+        bitmaps->alignX = 72;
+        bitmaps->alignY = 182;
+        ++bitmaps;
+        
+        bitmaps->head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_front_head.bmp");
+        bitmaps->cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                     "../data/test/test_hero_front_cape.bmp");
+        bitmaps->torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile,
+                                      "../data/test/test_hero_front_torso.bmp");
+        bitmaps->alignX = 72;
+        bitmaps->alignY = 182;
+        
+        gameState->heroFacingDirection = 3;
+        
+        gameState->cameraP.absTileX = 17 / 2;
+        gameState->cameraP.absTileY = 9 / 2;
         
         gameState->playerP.absTileX = 1;
         gameState->playerP.absTileY = 3;
@@ -399,26 +459,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
         }
         
-        gameState->backdrop = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_background.bmp");
-        
-        gameState->heroBitmaps[0].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_right_head.bmp");
-        gameState->heroBitmaps[0].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_right_cape.bmp");
-        gameState->heroBitmaps[0].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_right_torso.bmp");
-        
-        gameState->heroBitmaps[1].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_back_head.bmp");
-        gameState->heroBitmaps[1].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_back_cape.bmp");
-        gameState->heroBitmaps[1].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_back_torso.bmp");
-        
-        gameState->heroBitmaps[2].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_left_head.bmp");
-        gameState->heroBitmaps[2].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_left_cape.bmp");
-        gameState->heroBitmaps[2].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_left_torso.bmp");
-        
-        gameState->heroBitmaps[3].head = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_front_head.bmp");
-        gameState->heroBitmaps[3].cape = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_front_cape.bmp");
-        gameState->heroBitmaps[3].torso = DEBUGLoadBMP(thread, platform.DEBUGReadEntireFile, "../data/test/test_hero_front_torso.bmp");
-        
-        gameState->facingDirection = 3;
-        
         memory->isInitialized = true;
     }
     
@@ -458,25 +498,25 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 if (controller->moveUp.endedDown)
                 {
                     dPlayerY = 1.0f;
-                    gameState->facingDirection = 1;
+                    gameState->heroFacingDirection = 1;
                 }
                 
                 if (controller->moveDown.endedDown)
                 {
                     dPlayerY = -1.0f;
-                    gameState->facingDirection = 3;
+                    gameState->heroFacingDirection = 3;
                 }
                 
                 if (controller->moveLeft.endedDown)
                 {
                     dPlayerX = -1.0f;
-                    gameState->facingDirection = 2;
+                    gameState->heroFacingDirection = 2;
                 }
                 
                 if (controller->moveRight.endedDown)
                 {
                     dPlayerX = 1.0f;
-                    gameState->facingDirection = 0;
+                    gameState->heroFacingDirection = 0;
                 }
             }
             
@@ -523,6 +563,28 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 
                 gameState->playerP = newPlayerP;
             }
+            
+            gameState->cameraP.absTileZ = gameState->playerP.absTileZ;
+            
+            TileMapDifference diff = Subtract(tileMap, &gameState->playerP, &gameState->cameraP);
+            
+            if (diff.dX > (9.0f * tileMap->tileSideInMeters))
+            {
+                gameState->cameraP.absTileX += 17;
+            }
+            else if (diff.dX < -(9.0f * tileMap->tileSideInMeters))
+            {
+                gameState->cameraP.absTileX -= 17;
+            }
+            
+            if (diff.dY > (5.0f * tileMap->tileSideInMeters))
+            {
+                gameState->cameraP.absTileY += 9;
+            }
+            else if (diff.dY < -(5.0f * tileMap->tileSideInMeters))
+            {
+                gameState->cameraP.absTileY -= 9;
+            }
         }
     }
     
@@ -535,9 +597,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     {
         for (s32 relColumn = -20; relColumn < 20; ++relColumn)
         {
-            u32 column = gameState->playerP.absTileX + relColumn;
-            u32 row =  gameState->playerP.absTileY + relRow;
-            u32 tileID = GetTileValue(tileMap, column, row, gameState->playerP.absTileZ);
+            u32 column = gameState->cameraP.absTileX + relColumn;
+            u32 row =  gameState->cameraP.absTileY + relRow;
+            u32 tileID = GetTileValue(tileMap, column, row, gameState->cameraP.absTileZ);
             
             if (tileID > 1)
             {
@@ -553,15 +615,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     tileColor = 0.25f;
                 }
                 
-                if ((column == gameState->playerP.absTileX) &&
-                    (row == gameState->playerP.absTileY))
+                if ((column == gameState->cameraP.absTileX) &&
+                    (row == gameState->cameraP.absTileY))
                 {
                     tileColor = 0.0f;
                 }
                 
-                f32 cenX = screenCenterX - gameState->playerP.offsetX * metersToPixels +
+                f32 cenX = screenCenterX - gameState->cameraP.offsetX * metersToPixels +
                     (f32)(relColumn * tileSideInPixels);
-                f32 cenY = screenCenterY + gameState->playerP.offsetY * metersToPixels -
+                f32 cenY = screenCenterY + gameState->cameraP.offsetY * metersToPixels -
                     (f32)(relRow * tileSideInPixels);
                 
                 f32 minX = cenX - 0.5f * tileSideInPixels;
@@ -580,8 +642,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     f32 playerG = 1.0f;
     f32 playerB = 0.0f;
     
-    f32 playerLeft = screenCenterX - 0.5f * playerWidth * metersToPixels;
-    f32 playerTop = screenCenterY - playerHeight * metersToPixels;
+    TileMapDifference diff = Subtract(tileMap, &gameState->playerP, &gameState->cameraP);
+    
+    f32 playerGroundPointX = screenCenterX + diff.dX * metersToPixels;
+    f32 playerGroundPointY = screenCenterY - diff.dY * metersToPixels;
+    f32 playerLeft = playerGroundPointX - 0.5f * playerWidth * metersToPixels;
+    f32 playerTop = playerGroundPointY - playerHeight * metersToPixels;
     
     DrawRectangle(offscreenBuffer,
                   playerLeft, playerTop,
@@ -589,11 +655,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                   playerTop + playerHeight * metersToPixels,
                   playerR, playerG, playerB);
     
-    HeroBitmaps* heroBitmaps = &gameState->heroBitmaps[gameState->facingDirection];
+    HeroBitmaps* heroBitmaps = &gameState->heroBitmaps[gameState->heroFacingDirection];
     
-    DrawBitmap(offscreenBuffer, &heroBitmaps->head, playerLeft, playerTop);
-    DrawBitmap(offscreenBuffer, &heroBitmaps->cape, playerLeft, playerTop);
-    DrawBitmap(offscreenBuffer, &heroBitmaps->torso, playerLeft, playerTop);
+    DrawBitmap(offscreenBuffer, &heroBitmaps->torso,
+               playerGroundPointX, playerGroundPointY,
+               heroBitmaps->alignX, heroBitmaps->alignY);
+    DrawBitmap(offscreenBuffer, &heroBitmaps->cape,
+               playerGroundPointX, playerGroundPointY,
+               heroBitmaps->alignX, heroBitmaps->alignY);
+    DrawBitmap(offscreenBuffer, &heroBitmaps->head,
+               playerGroundPointX, playerGroundPointY,
+               heroBitmaps->alignX, heroBitmaps->alignY);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)

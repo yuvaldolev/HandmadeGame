@@ -1125,8 +1125,7 @@ main(int argc, const char* argv[])
         
         // NOTE: If the game is running on a development machine than
         // we should show the cursor for edittor debugging puposes
-#if GAME_INTERNAL
-#else
+#if !GAME_INTERNAL
         [window toggleFullScreen:nil];
         CGDisplayHideCursor(kCGDirectMainDisplay);
 #endif

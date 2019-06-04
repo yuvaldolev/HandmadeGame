@@ -172,3 +172,19 @@ AreOnSameTile(TileMapPosition* a, TileMapPosition* b)
     
     return result;
 }
+
+inline TileMapDifference
+Subtract(TileMap* tileMap, TileMapPosition* a, TileMapPosition* b)
+{
+    TileMapDifference result;
+    
+    f32 dTileX = (f32)a->absTileX - (f32)b->absTileX;
+    f32 dTileY = (f32)a->absTileY - (f32)b->absTileY;
+    f32 dTileZ = (f32)a->absTileZ - (f32)b->absTileZ;
+    
+    result.dX = dTileX * tileMap->tileSideInMeters + (a->offsetX - b->offsetX);
+    result.dY = dTileY * tileMap->tileSideInMeters + (a->offsetY - b->offsetY);
+    result.dZ = dTileZ * tileMap->tileSideInMeters;
+    
+    return result;
+}

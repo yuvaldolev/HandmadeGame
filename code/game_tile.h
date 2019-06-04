@@ -43,5 +43,12 @@ struct TileMap
     TileChunk* tileChunks;
 };
 
+struct TileMapDifference
+{
+    f32 dX;
+    f32 dY;
+    f32 dZ;
+};
+
 #define GAME_TILE_H
 #endif

@@ -58,6 +58,8 @@ struct HeroBitmaps
     LoadedBitmap head;
     LoadedBitmap cape;
     LoadedBitmap torso;
+    s32 alignX;
+    s32 alignY;
 };
 
 struct World
@@ -71,11 +73,13 @@ struct GameState
     MemoryArena worldArena;
     
     World* world;
+    
+    TileMapPosition cameraP;
     TileMapPosition playerP;
     
     LoadedBitmap backdrop;
     
-    u32 facingDirection;
+    u32 heroFacingDirection;
     HeroBitmaps heroBitmaps[4];
 };
 
