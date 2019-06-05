@@ -1,6 +1,7 @@
 #if !defined(GAME_H)
 
 #include "game_platform.h"
+#include "game_math.h"
 #include "game_memory.h"
 #include "game_log.h"
 #include "game_tile.h"
@@ -21,66 +22,66 @@ GAME_INTERNAL:
 //          Game           //
 /////////////////////////////
 #pragma pack(push, 1)
-struct BitmapHeader
+struct bitmap_header
 {
-    u16 fileType;
-    u32 fileSize;
-    u16 reserved;
-    u16 reserved2;
-    u32 bitmapOffset;
-    u32 size;
-    s32 width;
-    s32 height;
-    u16 planes;
-    u16 bitsPerPixel;
-    u32 compression;
-    u32 sizeOfBitmap;
-    s32 horiziontalResolution;
-    s32 verticalResolution;
-    u32 colorsUsed;
-    u32 colorsImportant;
+    u16 FileType;
+    u32 FileSize;
+    u16 Reserved;
+    u16 Reserved2;
+    u32 BitmapOffset;
+    u32 Size;
+    s32 Width;
+    s32 Height;
+    u16 Planes;
+    u16 BitsPerPixel;
+    u32 Compression;
+    u32 SizeOfBitmap;
+    s32 HoriziontalResolution;
+    s32 VerticalResolution;
+    u32 ColorsUsed;
+    u32 ColorsImportant;
     
-    u32 redMask;
-    u32 greenMask;
-    u32 blueMask;
+    u32 RedMask;
+    u32 GreenMask;
+    u32 BlueMask;
 };
 #pragma pack(pop)
 
-struct LoadedBitmap
+struct loaded_bitmap
 {
-    u32* pixels;
-    s32 width;
-    s32 height;
+    u32* Pixels;
+    s32 Width;
+    s32 Height;
 };
 
-struct HeroBitmaps
+struct hero_bitmaps
 {
-    LoadedBitmap head;
-    LoadedBitmap cape;
-    LoadedBitmap torso;
-    s32 alignX;
-    s32 alignY;
+    loaded_bitmap Head;
+    loaded_bitmap Cape;
+    loaded_bitmap Torso;
+    s32 AlignX;
+    s32 AlignY;
 };
 
-struct World
+struct world
 {
-    TileMap* tileMap;
+    tile_map* TileMap;
 };
 
 struct GameState
 {
-    MemoryArena loggingArena;
-    MemoryArena worldArena;
+    memory_arena LoggingArena;
+    memory_arena WorldArena;
     
-    World* world;
+    world* World;
     
-    TileMapPosition cameraP;
-    TileMapPosition playerP;
+    tile_map_position CameraP;
+    tile_map_position PlayerP;
     
-    LoadedBitmap backdrop;
+    loaded_bitmap Backdrop;
     
-    u32 heroFacingDirection;
-    HeroBitmaps heroBitmaps[4];
+    u32 HeroFacingDirection;
+    hero_bitmaps HeroBitmaps[4];
 };
 
 #define GAME_H

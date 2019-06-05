@@ -2,77 +2,78 @@
 
 #include <stdarg.h>
 
-#define ReadVarArgUnsignedInteger(length, argList) (length == 8) ? \
-va_arg(argList, u64) : va_arg(argList, u32)
+#define ReadVarArgUnsignedInteger(Length, ArgList) (Length == 8) ? \
+va_arg(ArgList, u64) : va_arg(ArgList, u32)
 
-#define ReadVarArgSignedInteger(length, argList) (length == 8) ? \
-va_arg(argList, s64) : va_arg(argList, s32)
+#define ReadVarArgSignedInteger(Length, ArgList) (Length == 8) ? \
+va_arg(ArgList, s64) : va_arg(ArgList, s32)
 
-#define ReadVarArgFloat(length, argList) va_arg(argList, f64)
+#define ReadVarArgFloat(Length, ArgList) va_arg(ArgList, f64)
 
-#define CopyArray(dest, source, count) Copy(dest, source, \
-sizeof(*source) * count)
+#define CopyArray(Dest, Source, Count) Copy(Dest, Source, \
+sizeof(*Source) * Count)
 
-struct FormatDest
+struct format_dest
 {
-    char* at;
-    umm size;
+    char* At;
+    umm Size;
 };
 
-global_variable char globalDecChars[] = "0123456789";
-global_variable char globalLowerHexChars[] = "0123456789abcdef";
-global_variable char globalUpperHexChars[] = "0123456789ABCDEF";
+global_variable char GlobalDecChars[] = "0123456789";
+global_variable char GlobalLowerHexChars[] = "0123456789abcdef";
+global_variable char GlobalUpperHexChars[] = "0123456789ABCDEF";
 
 internal void
-ZeroSize(void* ptr, memory_index size)
+ZeroSize(void* Ptr, memory_index Size)
 {
-    u8* byte = (u8*)ptr;
+    u8* Byte = (u8*)Ptr;
     
-    while (size--)
+    while (Size--)
     {
-        *byte++ = 0;
+        *Byte++ = 0;
     }
 }
 
 internal void*
-Copy(void* destInit, const void* sourceInit, memory_index size)
+Copy(void* DestInit, const void* SourceInit, memory_index Size)
 {
-    void* result = 0;
+    void* Result = 0;
     
-    if (destInit && sourceInit)
+    if (DestInit && SourceInit)
     {
-        const u8* source = (const u8*)sourceInit;
-        u8* dest = (u8*)destInit;
+        const u8* Source = (const u8*)SourceInit;
+        u8* Dest = (u8*)DestInit;
         
-        while (size--)
+        while (Size--)
         {
-            *dest++ = *source++;
+            *Dest++ = *Source++;
         }
         
-        result = destInit;
+        Result = DestInit;
     }
     
+    return Result;
+}
+
+internal char*
+CopyZ(void* Dest, const char* Z, umm Count)
+{
+    char* DestInit = (char*)Copy(Dest, Z, Count * sizeof(char));
+    return DestInit;
+}
+
+internal char*
+CopyZ(void* Dest, const char* Z)
+{
+    char* result = CopyZ(dest, z, StringLength(z));
     return result;
 }
 
-internal char*
-CopyZ(void* dest, const char* z, umm count)
-{
-    char* destInit = (char*)Copy(dest, z, count * sizeof(char));
-    return destInit;
-}
-
-internal char*
-CopyZ(void* dest, const char* z)
-{
-    return CopyZ(dest, z, StringLength(z));
-}
-
-internal String
+internal string
 MakeString(const char* z, void* memory, umm count, memory_index memorySize)
 {
     // NOTE(yuval): z is REQUIRED to be null terminated!
-    String str = { };
+    string str = { };
     
     if (memory && z)
     {
@@ -86,7 +87,7 @@ MakeString(const char* z, void* memory, umm count, memory_index memorySize)
     return str;
 }
 
-internal String
+internal string
 MakeString(const char* z, void* memory, memory_index memorySize)
 {
     // NOTE(yuval): z is REQUIRED to be null terminated!
@@ -94,7 +95,7 @@ MakeString(const char* z, void* memory, memory_index memorySize)
 }
 
 internal void
-AppendZ(String* dest, const char* z, umm count)
+AppendZ(string* dest, const char* z, umm count)
 {
     if (dest && z)
     {
@@ -108,19 +109,19 @@ AppendZ(String* dest, const char* z, umm count)
 }
 
 internal void
-AppendZ(String* dest, const char* z)
+AppendZ(string* dest, const char* z)
 {
     AppendZ(dest, z, StringLength(z));
 }
 
 internal void
-AppendString(String* dest, const String* source)
+AppendString(string* dest, const string* source)
 {
     AppendZ(dest, source->data, source->count);
 }
 
 internal void
-AdvanceString(String* value, umm count)
+AdvanceString(string* value, umm count)
 {
     if (value->count >= count)
     {
@@ -136,11 +137,11 @@ AdvanceString(String* value, umm count)
     }
 }
 
-internal String
+internal string
 WrapZ(char* z)
 {
     u32 zLength = StringLength(z);
-    String str = { z, zLength, zLength * sizeof(char) };
+    string str = { z, zLength, zLength * sizeof(char) };
     return str;
 }
 
@@ -153,7 +154,7 @@ CatStrings(char* dest, memory_index destCount,
     char* destAt = dest;
     
     // TODO(yuval & eran): @Copy-and-paste
-    // TODO(yuval & eran): @Incomplete use String struct
+    // TODO(yuval & eran): @Incomplete use string struct
     for (u32 index = 0; index < sourceACount; ++index)
     {
         *destAt++ = sourceA[index];
@@ -232,7 +233,7 @@ OutChars(FormatDest* dest, const char* value)
 }
 
 internal void
-OutString(FormatDest* dest, String value)
+OutString(FormatDest* dest, string value)
 {
     while (value.count--)
     {
@@ -342,10 +343,10 @@ S32FromZ(const char* at)
 }
 
 internal umm
-FormatStringList(char* destInit, umm destSize,
+FormatStringList(char* DestInit, umm destSize,
                  const char* format, va_list argList)
 {
-    FormatDest dest = { destInit, destSize };
+    FormatDest dest = { DestInit, destSize };
     
     if (dest.size)
     {
@@ -573,7 +574,7 @@ FormatStringList(char* destInit, umm destSize,
                     case 'n':
                     {
                         s32* tabDest = va_arg(argList, s32*);
-                        *tabDest = (int)(dest.at - destInit);
+                        *tabDest = (int)(dest.at - DestInit);
                     } break;
                     
                     case '%':
@@ -675,7 +676,7 @@ FormatStringList(char* destInit, umm destSize,
         }
     }
     
-    umm result = dest.at - destInit;
+    umm result = dest.at - DestInit;
     return result;
 }
 

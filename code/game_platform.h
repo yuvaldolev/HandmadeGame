@@ -9,35 +9,97 @@ extern "C" {
     ////////////////////////////////////
     //          Platform API          //
     ////////////////////////////////////
-    typedef struct ThreadContext
+    typedef struct thread_context
     {
-        s32 placeHolder;
-    } ThreadContext;
+        s32 PlaceHolder;
+    } thread_context;
+    
+    
+    // NOTE(yuval): Services that the platform provides to the game
+#define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* title, const char* message)
+    typedef PLATFORM_DISPLAY_MESSAGE_BOX(platform_display_message_box);
+    
+    typedef struct platform_date_time
+    {
+        u16 Day;
+        u16 Month;
+        u16 Year;
+        
+        u16 Hour;
+        u16 Minute;
+        u16 Second;
+        u16 Milliseconds;
+    } platform_date_time;
+    
+#define PLATFORM_GET_DATE_TIME(name) platform_date_time name()
+    typedef PLATFORM_GET_DATE_TIME(platform_get_date_time);
+    
+#ifdef GAME_INTERNAL
+    /*
+    IMPORTANT(yuval):
+    This code is NOT shipping code -
+    The functions are blocking and write doesn't protect against lost data!
+    */
+    typedef struct debug_read_file_result
+    {
+        void* Contents;
+        u32 ContentsSize;
+    } debug_read_file_result;
+    
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context* Thread, void* Memory)
+    typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+    
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context* Thread, \
+    const char* FileName)
+    typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+    
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(thread_context* Thread, \
+    const char* FileName, \
+    void* Memory, u32 MemorySize)
+    typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+#endif
+    
+    typedef struct platform_api
+    {
+        platform_display_message_box* DisplayMessageBox;
+        
+        platform_get_date_time* GetDateTime;
+        
+        debug_platform_free_file_memory* DEBUGFreeFileMemory;
+        debug_platform_read_entire_file* DEBUGReadEntireFile;
+        debug_platform_write_entire_file* DEBUGWriteEntireFile;
+    } platform_api;
+    
+    extern platform_api Platform;
+    
+#include "game_assert.h"
+#include "game_shared.h"
+#include "game_intrinsics.h"
     
     // NOTE(yuval): Services that the game provides to the platform
-    typedef struct GameSoundOutputBuffer
-    {
-        s16* samples;
-        s32 samplesPerSecond;
-        u32 sampleCount;
-    } GameSoundOutputBuffer;
-    
-    typedef struct GameOffscreenBuffer
+    typedef struct game_offscreen_buffer
     {
         void* memory;
         s32 width;
         s32 height;
         s32 pitch;
         s32 bytesPerPixel;
-    } GameOffscreenBuffer;
+    } game_offscreen_buffer;
     
-    typedef struct GameButtonState
+    typedef struct game_sound_output_buffer
+    {
+        s16* samples;
+        s32 samplesPerSecond;
+        u32 sampleCount;
+    } game_sound_output_buffer;
+    
+    typedef struct game_button_state
     {
         s32 halfTransitionCount;
         b32 endedDown;
-    } GameButtonState;
+    } game_button_state;
     
-    typedef struct GameController
+    typedef struct game_controller
     {
         b32 isConnected;
         b32 isAnalog;
@@ -73,9 +135,9 @@ extern "C" {
                 GameButtonState terminator;
             };
         };
-    } GameController;
+    } game_controller;
     
-    typedef struct GameInput
+    typedef struct game_input
     {
         f32 dtForFrame;
         
@@ -83,70 +145,9 @@ extern "C" {
         s32 mouseX, mouseY, mouseZ;
         
         GameController controllers[5];
-    } GameInput;
+    } game_input;
     
-    // NOTE(yuval): Services that the platform provides to the game
-#define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* title, const char* message)
-    typedef PLATFORM_DISPLAY_MESSAGE_BOX(PlatformDisplayMessageBoxType);
-    
-    typedef struct PlatformDateTime
-    {
-        u16 day;
-        u16 month;
-        u16 year;
-        
-        u16 hour;
-        u16 minute;
-        u16 second;
-        u16 milliseconds;
-    } PlatformDateTime;
-    
-#define PLATFORM_GET_DATE_TIME(name) PlatformDateTime name()
-    typedef PLATFORM_GET_DATE_TIME(PlatformGetDateTimeType);
-    
-#ifdef GAME_INTERNAL
-    /*
-    IMPORTANT(yuval):
-    This code is NOT shipping code -
-    The functions are blocking and write doesn't protect against lost data!
-    */
-    typedef struct
-    {
-        void* contents;
-        u32 contentsSize;
-    } DEBUGReadFileResult;
-    
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(ThreadContext* thread, void* memory)
-    typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemoryType);
-    
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) DEBUGReadFileResult name(ThreadContext* thread, \
-    const char* fileName)
-    typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFileType);
-    
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(ThreadContext* thread, \
-    const char* fileName, \
-    void* memory, u32 memorySize)
-    typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFileType);
-#endif
-    
-    typedef struct PlatformAPI
-    {
-        PlatformDisplayMessageBoxType* DisplayMessageBox;
-        
-        PlatformGetDateTimeType* GetDateTime;
-        
-        DEBUGPlatformFreeFileMemoryType* DEBUGFreeFileMemory;
-        DEBUGPlatformReadEntireFileType* DEBUGReadEntireFile;
-        DEBUGPlatformWriteEntireFileType* DEBUGWriteEntireFile;
-    } PlatformAPI;
-    
-    extern PlatformAPI platform;
-    
-#include "game_assert.h"
-#include "game_shared.h"
-#include "game_intrinsics.h"
-    
-    typedef struct GameMemory
+    typedef struct game_memory
     {
         b32 isInitialized;
         
@@ -157,7 +158,7 @@ extern "C" {
         u64 transientStorageSize;
         
         PlatformAPI platformAPI;
-    } GameMemory;
+    } game_memory;
     
     /* GameUpdateAndRender gets 4 thing from the Platform:
        1. Timing
@@ -165,14 +166,14 @@ extern "C" {
        3. Bitmap buffer to use
        4. Sound buffer to use
     */
-#define GAME_UPDATE_AND_RENDER(name) void name(ThreadContext* thread, GameMemory* memory, \
-    GameInput* input, \
-    GameOffscreenBuffer* offscreenBuffer)
-    typedef GAME_UPDATE_AND_RENDER(GameUpdateAndRenderType);
+#define GAME_UPDATE_AND_RENDER(name) void name(thread_context* Thread, game_memory* Memory, \
+    game_input* Input, \
+    game_offscreen_buffer* OffscreenBuffer)
+    typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
     
-#define GAME_GET_SOUND_SAMPLES(name) void name(ThreadContext* thread, GameMemory* memory, \
-    GameSoundOutputBuffer* soundBuffer)
-    typedef GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesType);
+#define GAME_GET_SOUND_SAMPLES(name) void name(thread_context* Thread, game_memory* Memory, \
+    game_sound_output_buffer* SoundBuffer)
+    typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
     
 #ifdef __cplusplus
 }

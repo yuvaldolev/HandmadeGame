@@ -1,31 +1,31 @@
 #if !defined(GAME_MEMORY_H)
 
-#define PushStruct(arena, type) (type*)PushSize_(arena, sizeof(type))
-#define PushArray(arena, type, count) (type*)PushSize_(arena, (count) * sizeof(type))
-#define PushSize(arena, size) PushSize_(arena, size)
+#define PushStruct(Arena, Type) (type*)PushSize_(Arena, sizeof(Type))
+#define PushArray(Arena, Type, Count) (type*)PushSize_(Arena, (Count) * sizeof(Type))
+#define PushSize(Arena, Size) PushSize_(Arena, Size)
 
-struct MemoryArena
+struct memory_arena
 {
-    u8* base;
-    memory_index size;
-    memory_index used;
+    u8* Base;
+    memory_index Size;
+    memory_index Used;
 };
 
 internal void
-InitializeArena(MemoryArena* arena, void* base, memory_index size)
+InitializeArena(memory_arena* Arena, void* Base, memory_index Size)
 {
-    arena->base = (u8*)base;
-    arena->size = size;
-    arena->used = 0;
+    Arena->Base = (u8*)Base;
+    Arena->Size = Size;
+    Arena->Used = 0;
 }
 
 internal void*
-PushSize_(MemoryArena* arena, memory_index size)
+PushSize_(memory_arena* Arena, memory_index Size)
 {
-    Assert((arena->used + size) <= arena->size);
-    void* result = arena->base + arena->used;
-    arena->used += size;
-    return result;
+    Assert((Arena->Used + Size) <= Arena->Size);
+    void* Result = Arena->Base + Arena->Used;
+    Arena->Used += Size;
+    return Result;
 }
 
 #define GAME_MEMORY_H

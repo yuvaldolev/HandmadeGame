@@ -1,13 +1,13 @@
 #if !defined(GAME_LOG_FORMAT_H)
 
 internal void
-LogFormatSetPattern(MemoryArena* arena, const char* fmt);
+LogFormatSetPattern(memory_arena* Arena, const char* Fmt);
 
 internal void
 LogFormatClean();
 
 internal void
-LogFormatMessage(LogMsg* msg);
+LogFormatMessage(log_msg* Msg);
 
 #define GAME_LOG_FORMAT_H
 #endif

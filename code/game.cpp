@@ -9,9 +9,9 @@
 (RoundF32ToU32(G * 255.0f) << 8) | \
 (RoundF32ToU32(B * 255.0f)))
 
-internal LoadedBitmap
-DEBUGLoadBMP(ThreadContext* thread,
-             DEBUGPlatformReadEntireFileType* DEBUGPlatformReadEntireFile,
+internal loaded_bitmap
+DEBUGLoadBMP(thread_context* Thread,
+             debug_platform_read_entire_file* ReadEntireFile,
              const char* fileName)
 {
     LoadedBitmap result = { };
@@ -483,52 +483,55 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         if (controller->isConnected)
         {
             // NOTE: Delta coordinates are meters per second
-            f32 dPlayerX = 0.0f;
-            f32 dPlayerY = 0.0f;
+            v2 dPlayer = { };
             
             if (controller->isAnalog)
             {
                 // TODO(yuval, eran): Analog controller tuning
-                dPlayerX = controller->stickAverageX;
-                dPlayerY = controller->stickAverageY;
+                dPlayer.X = controller->stickAverageX;
+                dPlayer.Y = controller->stickAverageY;
             }
             else
             {
                 // TODO(yuval, eran): Digital controller tuning
                 if (controller->moveUp.endedDown)
                 {
-                    dPlayerY = 1.0f;
+                    dPlayer.Y = 1.0f;
                     gameState->heroFacingDirection = 1;
                 }
                 
                 if (controller->moveDown.endedDown)
                 {
-                    dPlayerY = -1.0f;
+                    dPlayer.Y = -1.0f;
                     gameState->heroFacingDirection = 3;
                 }
                 
                 if (controller->moveLeft.endedDown)
                 {
-                    dPlayerX = -1.0f;
+                    dPlayer.X = -1.0f;
                     gameState->heroFacingDirection = 2;
                 }
                 
                 if (controller->moveRight.endedDown)
                 {
-                    dPlayerX = 1.0f;
+                    dPlayer.X = 1.0f;
                     gameState->heroFacingDirection = 0;
                 }
             }
             
-            f32 playerSpeed = 2.0f;
+            f32 PlayerSpeed = 2.0f;
             
             if (controller->run.endedDown)
             {
-                playerSpeed = 10.f;
+                PlayerSpeed = 10.f;
             }
             
-            dPlayerX *= playerSpeed;
-            dPlayerY *= playerSpeed;
+            dPlayer *= PlayerSpeed;
+            
+            if ((dPlayer.X != 0.0f) && (dPlayer.Y != 0.0f))
+            {
+                dPlayer *= 0.7071067812f;
+            }
             
             TileMapPosition newPlayerP = gameState->playerP;
             newPlayerP.offsetX += dPlayerX * input->dtForFrame;

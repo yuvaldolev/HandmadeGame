@@ -1,51 +1,51 @@
 #if !defined(GAME_LOG_H)
 
-enum LogLevelEnum
+enum log_level
 {
-    LogLevelDebug = 0,
-    LogLevelInfo,
-    LogLevelWarn,
-    LogLevelError,
-    LogLevelFatal
+    LogLevel_Debug = 0,
+    LogLevel_Info,
+    LogLevel_Warn,
+    LogLevel_Error,
+    LogLevel_Fatal
 };
 
-struct LogMsg
+struct log_msg
 {
-    LogLevelEnum level;
-    const char* file;
-    const char* fn;
-    long line;
-    const char* format;
-    va_list* argList;
-    char* formatted;
-    char* formattedAt;
-    umm remainingFormattingSpace;
-    umm maxSize;
+    log_level Level;
+    const char* File;
+    const char* Fn;
+    long Line;
+    const char* Format;
+    va_list* ArgList;
+    char* Formatted;
+    char* FormattedAt;
+    umm RemainingFormattingSpace;
+    umm MaxSize;
 };
 
 #include "game_log_format.h"
 
 internal void
-LogInit(MemoryArena* arena,
-        LogLevelEnum minLevel, const char* logFmt);
+LogInit(memory_arena* Arena,
+        log_level MinLevel, const char* LogFmt);
 
 internal void
-Log(LogLevelEnum level, const char* logFileName,
-    const char* logFnName, long logLine,
-    const char* format, ...);
+Log(log_level Level, const char* LogFileName,
+    const char* LogFnName, long LogLine,
+    const char* Format, ...);
 
 // NOTE(yuval): This macro is internal do not use in other files!
-#define LogInternal(level, format, ...) Log(level, \
+#define LogInternal(Level, Format, ...) Log(Level, \
 __FILE__, \
 __FUNCTION__, \
 __LINE__, \
-format, ##__VA_ARGS__)
+Format, ##__VA_ARGS__)
 
-#define LogDebug(format, ...) LogInternal(LogLevelDebug, format, ##__VA_ARGS__)
-#define LogInfo(format, ...) LogInternal(LogLevelInfo, format, ##__VA_ARGS__)
-#define LogWarn(format, ...) LogInternal(LogLevelWarn, format, ##__VA_ARGS__)
-#define LogError(format, ...) LogInternal(LogLevelError, format, ##__VA_ARGS__)
-#define LogFatal(format, ...) LogInternal(LogLevelFatal, format, ##__VA_ARGS__)
+#define LogDebug(Format, ...) LogInternal(LogLevelDebug, Format, ##__VA_ARGS__)
+#define LogInfo(Format, ...) LogInternal(LogLevelInfo, Format, ##__VA_ARGS__)
+#define LogWarn(Format, ...) LogInternal(LogLevelWarn, Format, ##__VA_ARGS__)
+#define LogError(Format, ...) LogInternal(LogLevelError, Format, ##__VA_ARGS__)
+#define LogFatal(Format, ...) LogInternal(LogLevelFatal, Format, ##__VA_ARGS__)
 
 #define GAME_LOG_H
 #endif

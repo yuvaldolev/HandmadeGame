@@ -82,27 +82,37 @@ typedef uintptr_t umm;
 
 typedef size_t memory_index;
 
-struct String
+struct string
 {
-    char* data;
-    umm count;
-    memory_index memorySize;
+    char* Data;
+    umm Count;
+    memory_index MemorySize;
+};
+
+union v2
+{
+    struct
+    {
+        f32 X, Y;
+    };
+    
+    f32 E[2];
 };
 
 inline u32
-StringLength(const char* string)
+StringLength(const char* String)
 {
-    u32 count = 0;
+    u32 Count = 0;
     
-    if (string)
+    if (String)
     {
-        while(*string++)
+        while(*String++)
         {
-            ++count;
+            ++Count;
         }
     }
     
-    return count;
+    return Count;
 }
 
 #define GAME_TYPES_H
