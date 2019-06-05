@@ -9,6 +9,8 @@
 
 #include "win32_game.h"
 
+PlatformAPI platform;
+
 /*
   TODO(yuval & eran): What is left to be done in the platform layer:
   * Saved game location
@@ -55,7 +57,6 @@ global_variable XInputSetStateType* XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(DirectSoundCreateType);
 
-// TODO(yuval & eran): Remove global variables!!!
 global_variable b32 globalRunning;
 global_variable b32 globalPause;
 global_variable Win32Backbuffer globalBackbuffer;
@@ -63,6 +64,11 @@ global_variable IDirectSoundBuffer* globalSecondaryBuffer;
 global_variable s64 globalPerfCountFrequency;
 global_variable b32 globalShowCursor;
 global_variable WINDOWPLACEMENT globalWindowPosition;
+
+PLATFORM_DISPLAY_MESSAGE_BOX(PlatformDisplayMessageBox)
+{
+    MessageBoxA(0, message, title, MB_OK | MB_ICONERROR);
+}
 
 PLATFORM_GET_DATE_TIME(PlatformGetDateTime)
 {
@@ -1081,6 +1087,12 @@ WinMain(HINSTANCE instance,
         LPSTR commandLine,
         s32 showCode)
 {
+    platform.DisplayMessageBox = PlatformDisplayMessageBox;
+    platform.GetDateTime = PlatformGetDateTime;
+    platform.DEBUGFreeFileMemory =  DEBUGPlatformFreeFileMemory;
+    platform.DEBUGReadEntireFile = DEBUGPlatformReadEntireFile;
+    platform.DEBUGWriteEntireFile = DEBUGPlatformWriteEntireFile;
+    
     Win32State win32State = { };
     
     Win32GetEXEFileName(&win32State);
@@ -1218,10 +1230,7 @@ WinMain(HINSTANCE instance,
             gameMemory.permanentStorageSize = Megabytes(64);
             gameMemory.transientStorageSize = Gigabytes(1);
             
-            gameMemory.PlatformGetDateTime = PlatformGetDateTime;
-            gameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
-            gameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
-            gameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+            gameMemory.platfromAPI = platform;
             
             win32State.totalSize = gameMemory.permanentStorageSize + gameMemory.transientStorageSize;
             
