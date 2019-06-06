@@ -16,7 +16,7 @@ extern "C" {
     
     
     // NOTE(yuval): Services that the platform provides to the game
-#define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* title, const char* message)
+#define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* Title, const char* Message)
     typedef PLATFORM_DISPLAY_MESSAGE_BOX(platform_display_message_box);
     
     typedef struct platform_date_time
@@ -79,60 +79,60 @@ extern "C" {
     // NOTE(yuval): Services that the game provides to the platform
     typedef struct game_offscreen_buffer
     {
-        void* memory;
-        s32 width;
-        s32 height;
-        s32 pitch;
-        s32 bytesPerPixel;
+        void* Memory;
+        s32 Width;
+        s32 Height;
+        s32 Pitch;
+        s32 BytesPerPixel;
     } game_offscreen_buffer;
     
     typedef struct game_sound_output_buffer
     {
-        s16* samples;
-        s32 samplesPerSecond;
-        u32 sampleCount;
+        s16* Samples;
+        s32 SamplesPerSecond;
+        u32 SampleCount;
     } game_sound_output_buffer;
     
     typedef struct game_button_state
     {
-        s32 halfTransitionCount;
-        b32 endedDown;
+        s32 HalfTransitionCount;
+        b32 EndedDown;
     } game_button_state;
     
     typedef struct game_controller
     {
-        b32 isConnected;
-        b32 isAnalog;
+        b32 IsConnected;
+        b32 IsAnalog;
         
-        f32 stickAverageX;
-        f32 stickAverageY;
+        f32 StickAverageX;
+        f32 StickAverageY;
         
         union
         {
-            GameButtonState buttons[13];
+            game_button_state Buttons[13];
             
             struct
             {
-                GameButtonState moveUp;
-                GameButtonState moveDown;
-                GameButtonState moveLeft;
-                GameButtonState moveRight;
+                game_button_state MoveUp;
+                game_button_state MoveDown;
+                game_button_state MoveLeft;
+                game_button_state MoveRight;
                 
-                GameButtonState run;
+                game_button_state Run;
                 
-                GameButtonState actionUp;
-                GameButtonState actionDown;
-                GameButtonState actionLeft;
-                GameButtonState actionRight;
+                game_button_state ActionUp;
+                game_button_state ActionDown;
+                game_button_state ActionLeft;
+                game_button_state ActionRight;
                 
-                GameButtonState leftShoulder;
-                GameButtonState rightShoulder;
+                game_button_state LeftShoulder;
+                game_button_state RightShoulder;
                 
-                GameButtonState back;
-                GameButtonState start;
+                game_button_state Back;
+                game_button_state Start;
                 
                 // IMPORTANT(yuval): Add new buttons before this ButtonState
-                GameButtonState terminator;
+                game_button_state Terminator;
             };
         };
     } game_controller;
@@ -141,23 +141,23 @@ extern "C" {
     {
         f32 dtForFrame;
         
-        GameButtonState mouseButtons[5];
-        s32 mouseX, mouseY, mouseZ;
+        game_button_state MouseButtons[5];
+        s32 MouseX, MouseY, MouseZ;
         
-        GameController controllers[5];
+        game_controller Controllers[5];
     } game_input;
     
     typedef struct game_memory
     {
-        b32 isInitialized;
+        b32 IsInitialized;
         
-        void* permanentStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
-        u64 permanentStorageSize;
+        void* PermanentStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
+        u64 PermanentStorageSize;
         
-        void* transientStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
-        u64 transientStorageSize;
+        void* TransientStorage; // NOTE(yuval): Memory is REQUIRED to be initialized to 0 at startup
+        u64 TransientStorageSize;
         
-        PlatformAPI platformAPI;
+        platform_api PlatformAPI;
     } game_memory;
     
     /* GameUpdateAndRender gets 4 thing from the Platform:

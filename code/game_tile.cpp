@@ -1,190 +1,188 @@
 inline void
-RecanonicalizeCoord(TileMap* tileMap, u32* tile, f32* tileRel)
+RecanonicalizeCoord(tile_map* TileMap, u32* Tile, f32* TileRel)
 {
-    // NOTE: The tileMap is assumed to be toroidal, if you step off
+    // NOTE: The tile map is assumed to be toroidal, if you step off
     // one end you come back on the other!
     
-    s32 offset = RoundF32ToS32(*tileRel / tileMap->tileSideInMeters);
-    *tile += offset;
-    *tileRel -= offset * tileMap->tileSideInMeters;
+    s32 Offset = RoundF32ToS32(*TileRel / TileMap->TileSideInMeters);
+    *Tile += Offset;
+    *TileRel -= Offset * TileMap->TileSideInMeters;
     
     // TODO(yuval, eran): @Fix floating point math so this can be
     // only "less then" and not "less then or equals"
-    Assert(*tileRel >= -0.5 * tileMap->tileSideInMeters);
-    Assert(*tileRel <= 0.5 * tileMap->tileSideInMeters);
+    Assert(*TileRel >= -0.5 * TileMap->TileSideInMeters);
+    Assert(*TileRel <= 0.5 * TileMap->TileSideInMeters);
 }
 
-internal TileMapPosition
-RecanonicalizePosition(TileMap* tileMap, TileMapPosition pos)
+internal tile_map_position
+RecanonicalizePosition(tile_map* TileMap, tile_map_position Pos)
 {
-    TileMapPosition result = pos;
+    tile_map_position Result = Pos;
     
-    RecanonicalizeCoord(tileMap, &result.absTileX, &result.offsetX);
-    RecanonicalizeCoord(tileMap, &result.absTileY, &result.offsetY);
+    RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.Offset.X);
+    RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.Offset.Y);
     
-    return result;
+    return Result;
 }
 
-internal TileChunk*
-GetTileChunk(TileMap* tileMap, u32 tileChunkX, u32 tileChunkY, u32 tileChunkZ)
+internal tile_chunk*
+GetTileChunk(tile_map* TileMap, u32 TileChunkX, u32 TileChunkY, u32 TileChunkZ)
 {
-    TileChunk* tileChunk = 0;
+    tile_chunk* TileChunk = 0;
     
-    if ((tileChunkX >= 0 && tileChunkX < tileMap->tileChunkCountX) &&
-        (tileChunkY >= 0 && tileChunkY < tileMap->tileChunkCountY) &&
-        (tileChunkZ >= 0) && tileChunkZ < tileMap->tileChunkCountZ)
+    if ((TileChunkX >= 0 && TileChunkX < TileMap->TileChunkCountX) &&
+        (TileChunkY >= 0 && TileChunkY < TileMap->TileChunkCountY) &&
+        (TileChunkZ >= 0) && TileChunkZ < TileMap->TileChunkCountZ)
     {
-        tileChunk =
-            &tileMap->tileChunks[tileChunkZ * tileMap->tileChunkCountY * tileMap->tileChunkCountX +
-                tileChunkY * tileMap->tileChunkCountX +
-                tileChunkX];
+        TileChunk =
+            &TileMap->TileChunks[TileChunkZ * TileMap->TileChunkCountY * TileMap->TileChunkCountX +
+                TileChunkY * TileMap->TileChunkCountX +
+                TileChunkX];
     }
     
-    return tileChunk;
+    return TileChunk;
 }
 
-inline TileChunkPosition
-GetChunkPositionFor(TileMap* tileMap, u32 absTileX, u32 absTileY, u32 absTileZ)
+inline tile_chunk_position
+GetChunkPositionFor(tile_map* TileMap, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
-    TileChunkPosition result;
+    tile_chunk_position Result;
     
-    result.tileChunkX = absTileX >> tileMap->chunkShift;
-    result.tileChunkY = absTileY >> tileMap->chunkShift;
-    result.tileChunkZ = absTileZ;
-    result.relTileX = absTileX & tileMap->chunkMask;
-    result.relTileY = absTileY & tileMap->chunkMask;
+    Result.TileChunkX = AbsTileX >> TileMap->ChunkShift;
+    Result.TileChunkY = AbsTileY >> TileMap->ChunkShift;
+    Result.TileChunkZ = AbsTileZ;
+    Result.RelTileX = AbsTileX & TileMap->ChunkMask;
+    Result.RelTileY = AbsTileY & TileMap->ChunkMask;
     
-    return result;
+    return Result;
 }
 
 internal u32
-GetTileValueUnchecked(TileMap* tileMap, TileChunk* tileChunk, u32 tileX, u32 tileY)
+GetTileValueUnchecked(tile_map* TileMap, tile_chunk* TileChunk, u32 TileX, u32 TileY)
 {
-    Assert(tileChunk);
-    Assert(tileX < tileMap->chunkDim);
-    Assert(tileY < tileMap->chunkDim);
+    Assert(TileChunk);
+    Assert(TileX < TileMap->ChunkDim);
+    Assert(TileY < TileMap->ChunkDim);
     
-    u32 tileValue = tileChunk->tiles[tileY * tileMap->chunkDim + tileX];
+    u32 TileValue = TileChunk->Tiles[TileY * TileMap->ChunkDim + TileX];
     
-    return tileValue;
+    return TileValue;
 }
 
 internal b32
-GetTileValue(TileMap* tileMap, TileChunk* tileChunk, u32 tileX, u32 tileY)
+GetTileValue(tile_map* TileMap, tile_chunk* TileChunk, u32 TileX, u32 TileY)
 {
-    u32 tileChunkValue = 0;
+    u32 TileChunkValue = 0;
     
-    if (tileChunk && tileChunk->tiles)
+    if (TileChunk && TileChunk->Tiles)
     {
-        tileChunkValue = GetTileValueUnchecked(tileMap, tileChunk, tileX, tileY);
+        TileChunkValue = GetTileValueUnchecked(TileMap, TileChunk, TileX, TileY);
     }
     
-    return tileChunkValue;
+    return TileChunkValue;
 }
 
 internal u32
-GetTileValue(TileMap* tileMap, u32 absTileX, u32 absTileY, u32 absTileZ)
+GetTileValue(tile_map* TileMap, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
-    TileChunkPosition chunkPos = GetChunkPositionFor(tileMap, absTileX, absTileY, absTileZ);
-    TileChunk* tileChunk = GetTileChunk(tileMap, chunkPos.tileChunkX,
-                                        chunkPos.tileChunkY, chunkPos.tileChunkZ);
-    u32 tileChunkValue = GetTileValue(tileMap, tileChunk, chunkPos.relTileX, chunkPos.relTileY);
+    tile_chunk_position ChunkPos = GetChunkPositionFor(TileMap, AbsTileX, AbsTileY, AbsTileZ);
+    tile_chunk* TileChunk = GetTileChunk(TileMap, ChunkPos.TileChunkX,
+                                         ChunkPos.TileChunkY, ChunkPos.TileChunkZ);
+    u32 TileChunkValue = GetTileValue(TileMap, TileChunk, ChunkPos.RelTileX, ChunkPos.RelTileY);
     
-    return tileChunkValue;
+    return TileChunkValue;
 }
 
 internal u32
-GetTileValue(TileMap* tileMap, TileMapPosition pos)
-
+GetTileValue(tile_map* TileMap, tile_map_position Pos)
 {
-    u32 tileChunkValue = GetTileValue(tileMap, pos.absTileX,
-                                      pos.absTileY, pos.absTileZ);
+    u32 TileChunkValue = GetTileValue(TileMap, Pos.AbsTileX,
+                                      Pos.AbsTileY, Pos.AbsTileZ);
     
-    return tileChunkValue;
+    return TileChunkValue;
 }
 
 internal u32
-SetTileValueUnchecked(TileMap* tileMap, TileChunk* tileChunk,
-                      u32 tileX, u32 tileY, u32 tileValue)
+SetTileValueUnchecked(tile_map* TileMap, tile_chunk* TileChunk,
+                      u32 TileX, u32 TileY, u32 TileValue)
 {
-    Assert(tileChunk);
-    Assert(tileX < tileMap->chunkDim);
-    Assert(tileY < tileMap->chunkDim);
+    Assert(TileChunk);
+    Assert(TileX < TileMap->ChunkDim);
+    Assert(TileY < TileMap->ChunkDim);
     
-    tileChunk->tiles[tileY * tileMap->chunkDim + tileX] = tileValue;
+    TileChunk->Tiles[TileY * TileMap->ChunkDim + TileX] = TileValue;
     
-    return tileValue;
+    return TileValue;
 }
 
 
 internal void
-SetTileValue(TileMap* tileMap, TileChunk* tileChunk,
-             u32 tileX, u32 tileY, u32 tileValue)
+SetTileValue(tile_map* TileMap, tile_chunk* TileChunk,
+             u32 TileX, u32 TileY, u32 TileValue)
 {
-    if (tileChunk && tileChunk->tiles)
+    if (TileChunk && TileChunk->Tiles)
     {
-        SetTileValueUnchecked(tileMap, tileChunk, tileX, tileY, tileValue);
+        SetTileValueUnchecked(TileMap, TileChunk, TileX, TileY, TileValue);
     }
 }
 
 internal void
-SetTileValue(MemoryArena* arena, TileMap* tileMap,
-             u32 absTileX, u32 absTileY, u32 absTileZ,
-             u32 tileValue)
+SetTileValue(memory_arena* Arena, tile_map* TileMap,
+             u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ,
+             u32 TileValue)
 {
-    TileChunkPosition chunkPos = GetChunkPositionFor(tileMap, absTileX, absTileY, absTileZ);
-    TileChunk* tileChunk = GetTileChunk(tileMap, chunkPos.tileChunkX,
-                                        chunkPos.tileChunkY, chunkPos.tileChunkZ);
+    tile_chunk_position ChunkPos = GetChunkPositionFor(TileMap, AbsTileX, AbsTileY, AbsTileZ);
+    tile_chunk* TileChunk = GetTileChunk(TileMap, ChunkPos.TileChunkX,
+                                         ChunkPos.TileChunkY, ChunkPos.TileChunkZ);
     
     // TODO(yuval): On-demand tile chunk creation
-    if (!tileChunk->tiles)
+    if (!TileChunk->Tiles)
     {
-        u32 tileCount = tileMap->chunkDim * tileMap->chunkDim;
-        tileChunk->tiles = PushArray(arena, u32, tileCount);
+        u32 TileCount = TileMap->ChunkDim * TileMap->ChunkDim;
+        TileChunk->Tiles = PushArray(Arena, u32, TileCount);
         
-        for (u32 tileIndex = 0; tileIndex < tileCount; ++tileIndex)
+        for (u32 TileIndex = 0; TileIndex < TileCount; ++TileIndex)
         {
-            tileChunk->tiles[tileIndex] = 1;
+            TileChunk->Tiles[TileIndex] = 1;
         }
     }
     
-    SetTileValue(tileMap, tileChunk, chunkPos.relTileX,
-                 chunkPos.relTileY, tileValue);
+    SetTileValue(TileMap, TileChunk, ChunkPos.RelTileX,
+                 ChunkPos.RelTileY, TileValue);
 }
 
 internal b32
-IsTileMapPointEmpty(TileMap* tileMap, TileMapPosition pos)
+IsTileMapPointEmpty(tile_map* TileMap, tile_map_position Pos)
 {
-    u32 tileChunkValue = GetTileValue(tileMap, pos.absTileX, pos.absTileY, pos.absTileZ);
-    b32 isEmpty = ((tileChunkValue == 1) ||
-                   (tileChunkValue == 3) ||
-                   (tileChunkValue == 4));
+    u32 TileChunkValue = GetTileValue(TileMap, Pos.AbsTileX, Pos.AbsTileY, Pos.AbsTileZ);
+    b32 IsEmpty = ((TileChunkValue == 1) ||
+                   (TileChunkValue == 3) ||
+                   (TileChunkValue == 4));
     
-    return isEmpty;
+    return IsEmpty;
 }
 
 internal b32
-AreOnSameTile(TileMapPosition* a, TileMapPosition* b)
+AreOnSameTile(tile_map_position* A, tile_map_position* B)
 {
-    b32 result = ((a->absTileX == b->absTileX) &&
-                  (a->absTileY == b->absTileY) &&
-                  (a->absTileZ == b->absTileZ));
+    b32 Result = ((A->AbsTileX == B->AbsTileX) &&
+                  (A->AbsTileY == B->AbsTileY) &&
+                  (A->AbsTileZ == B->AbsTileZ));
     
-    return result;
+    return Result;
 }
 
-inline TileMapDifference
-Subtract(TileMap* tileMap, TileMapPosition* a, TileMapPosition* b)
+inline tile_map_difference
+Subtract(tile_map* TileMap, tile_map_position* A, tile_map_position* B)
 {
-    TileMapDifference result;
+    tile_map_difference Result;
     
-    f32 dTileX = (f32)a->absTileX - (f32)b->absTileX;
-    f32 dTileY = (f32)a->absTileY - (f32)b->absTileY;
-    f32 dTileZ = (f32)a->absTileZ - (f32)b->absTileZ;
+    v2 dTileXY = { (f32)A->AbsTileX - (f32)B->AbsTileX,
+        (f32)A->AbsTileY - (f32)B->AbsTileY };
+    f32 dTileZ = (f32)A->AbsTileZ - (f32)B->AbsTileZ;
     
-    result.dX = dTileX * tileMap->tileSideInMeters + (a->offsetX - b->offsetX);
-    result.dY = dTileY * tileMap->tileSideInMeters + (a->offsetY - b->offsetY);
-    result.dZ = dTileZ * tileMap->tileSideInMeters;
+    Result.dXY = TileMap->TileSideInMeters  * dTileXY + (A->Offset - B->Offset);
+    Result.dZ = dTileZ * TileMap->TileSideInMeters;
     
-    return result;
+    return Result;
 }

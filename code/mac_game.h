@@ -1,60 +1,62 @@
 #if !defined(MAC_GAME_H)
 
-struct MacGameCode
+struct mac_game_code
 {
-    void* gameCodeDLL;
+    void* GameCodeDLL;
     time_t DLLLastWriteTime;
     
-    GameUpdateAndRenderType* UpdateAndRender;
-    GameGetSoundSamplesType* GetSoundSamples;
+    // IMPORTANT: Either of the callbacks can be 0!  You must
+    // check before calling.
+    game_update_and_render* UpdateAndRender;
+    game_get_sound_samples* GetSoundSamples;
     
-    b32 isValid;
+    b32 IsValid;
 };
 
-struct MacOffscreenBuffer
+struct mac_offscreen_buffer
 {
-    u32 textureID;
-    void* memory;
-    s32 width;
-    s32 height;
-    s32 pitch;
-    s32 bytesPerPixel;
+    u32 TextureID;
+    void* Memory;
+    s32 Width;
+    s32 Height;
+    s32 Pitch;
+    s32 BytesPerPixel;
 };
 
-struct MacSoundOutput
+struct mac_sound_output
 {
-    GameSoundOutputBuffer soundBuffer;
-    u32 soundBufferSize;
+    game_sound_output_buffer SoundBuffer;
+    u32 SoundBufferSize;
     
-    s16* coreAudioBuffer;
-    s16* readCursor;
-    s16* writeCursor;
+    s16* CoreAudioBuffer;
+    s16* ReadCursor;
+    s16* WriteCursor;
 };
 
 #define MAC_STATE_FILE_NAME_COUNT FILENAME_MAX
 
-struct MacReplayBuffer
+struct mac_replay_buffer
 {
-    s32 fileHandle;
-    char replayFileName[MAC_STATE_FILE_NAME_COUNT];
-    void* memoryBlock;
+    s32 FileHandle;
+    char ReplayFileName[MAC_STATE_FILE_NAME_COUNT];
+    void* MemoryBlock;
 };
 
-struct MacState
+struct mac_state
 {
-    u64 totalSize;
-    void* gameMemoryBlock;
+    u64 TotalSize;
+    void* GameMemoryBlock;
     
-    MacReplayBuffer replayBuffers[4];
+    mac_replay_buffer ReplayBuffers[4];
     
-    s32 recordingHandle;
-    s32 inputRecordingIndex;
+    s32 RecordingHandle;
+    s32 InputRecordingIndex;
     
-    s32 playBackHandle;
-    s32 inputPlayingIndex;
+    s32 PlayBackHandle;
+    s32 InputPlayingIndex;
     
-    char appFileName[MAC_STATE_FILE_NAME_COUNT];
-    char* onePastLastAppFileNameSlash;
+    char AppFileName[MAC_STATE_FILE_NAME_COUNT];
+    char* OnePastLastAppFileNameSlash;
 };
 
 #define MAC_GAME_H

@@ -6,86 +6,88 @@
 #include <math.h>
 
 inline s32
-RoundF32ToS32(f32 value)
+RoundF32ToS32(f32 Value)
 {
-    s32 result = (s32)roundf(value);
-    return result;
+    s32 Result = (s32)roundf(Value);
+    return Result;
 }
 
 inline u32
-RoundF32ToU32(f32 value)
+RoundF32ToU32(f32 Value)
 {
-    u32 result = (u32)roundf(value);
-    return result;
+    u32 Result = (u32)roundf(Value);
+    return Result;
 }
 
 inline s32
-FloorF32ToS32(f32 value)
+FloorF32ToS32(f32 Value)
 {
-    s32 result = (s32)floorf(value);
-    return result;
+    s32 Result = (s32)floorf(Value);
+    return Result;
 }
 
 inline s32
-TruncateF32ToS32(f32 value)
+TruncateF32ToS32(f32 Value)
 {
-    s32 result = (s32)value;
-    return result;
+    s32 Result = (s32)Value;
+    return Result;
 }
 
 inline u32
-SafeTruncateToU32(u64 value)
+SafeTruncateToU32(u64 Value)
 {
     // TODO(yuval & eran): Defines for size limits
-    Assert(value <= 0xFFFFFFFF);
-    return (u32)value;
+    Assert(Value <= 0xFFFFFFFF);
+    return (u32)Value;
 }
 
 inline f32
-Sin(f32 angle)
+Sin(f32 Angle)
 {
-    f32 result = sinf(angle);
-    return result;
+    f32 Result = sinf(Angle);
+    return Result;
 }
 
 inline f32
-Cos(f32 angle)
+Cos(f32 Angle)
 {
-    f32 result = cosf(angle);
-    return result;
+    f32 Result = cosf(Angle);
+    return Result;
 }
 
 inline f32
 ATan2(f32 Y, f32 X)
 {
-    f32 result = atan2f(Y, X);
-    return result;
+    f32 Result = atan2f(Y, X);
+    return Result;
 }
 
-struct BitScanResult
+struct bit_scan_result
 {
-    s32 index;
-    b32 found;
+    s32 Index;
+    b32 Found;
 };
 
-inline BitScanResult
-FindLeastSignificantSetBit(u32 value)
+inline bit_scan_result
+FindLeastSignificantSetBit(u32 Value)
 {
-    BitScanResult result = { };
+    bit_scan_result Result = { };
+    
 #if COMPILER_MSVC
-    result.found = _BitScanForward((unsigned long*)&result.index, value);
+    Result.Found = _BitScanForward((unsigned long*)&Result.Index, Value);
 #else
-    for (u32 index = 0; index < 32; ++index)
+    for (u32 Index = 0; Index < 32; ++Index)
     {
-        if (value & (1 << index))
+        if (Value & (1 << Index))
         {
-            result.index = index;
-            result.found = true;
+            Result.Index = Index;
+            Result.Found = true;
             break;
         }
     }
 #endif
-    return result;
+    
+    return Result;
 }
 
 #define GAME_INTRINSICS_H

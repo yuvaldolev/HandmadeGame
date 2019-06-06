@@ -3,53 +3,52 @@
 // TODO(yuval, eran): @Temporary
 #include <stdio.h>
 
-global_variable LogLevelEnum globalMinLevel;
+global_variable log_level GlobalMinLevel;
 
 void
-LogInit(MemoryArena* arena,
-        LogLevelEnum minLevel, const char* logFmt)
+LogInit(memory_arena* Arena,
+        log_level minLevel, const char* LogFmt)
 {
-    globalMinLevel = minLevel;
-    LogFormatSetPattern(arena, logFmt);
+    GlobalMinLevel = minLevel;
+    LogFormatSetPattern(Arena, LogFmt);
 }
 
-
 internal void
-Log(LogLevelEnum level, const char* logFileName,
-    const char* logFnName, long logLine,
-    const char* format, ...)
+Log(log_level Level, const char* LogFileName,
+    const char* LogFnName, long LogLine,
+    const char* Format, ...)
 {
-    if (level >= globalMinLevel)
+    if (Level >= GlobalMinLevel)
     {
         // NOTE: VA LIST extraction
-        va_list argList;
-        va_start(argList, format);
+        va_list ArgList;
+        va_start(ArgList, Format);
         
         // NOTE: LogMsg struct instance
         const u32 FORMATTED_SIZE = 4096;
-        char formatted[FORMATTED_SIZE] = { };
+        char Formatted[FORMATTED_SIZE] = { };
         
-        LogMsg msg = { };
-        msg.level = level;
-        msg.file = logFileName;
-        msg.fn = logFnName;
-        msg.line = logLine;
-        msg.format = format;
-        msg.argList = &argList;
-        msg.formatted = formatted;
-        msg.formattedAt = formatted;
-        msg.remainingFormattingSpace = FORMATTED_SIZE;
-        msg.maxSize = FORMATTED_SIZE;
+        log_msg Msg = { };
+        Msg.Level = Level;
+        Msg.File = LogFileName;
+        Msg.Fn = LogFnName;
+        Msg.Line = LogLine;
+        Msg.Format = Format;
+        Msg.ArgList = &ArgList;
+        Msg.Formatted = Formatted;
+        Msg.FormattedAt = Formatted;
+        Msg.RemainingFormattingSpace = FORMATTED_SIZE;
+        Msg.MaxSize = FORMATTED_SIZE;
         
         // NOTE: Format Message
-        LogFormatMessage(&msg);
+        LogFormatMessage(&Msg);
         
         // NOTE: Log Message In Color
         // TODO(yuval, eran): @Temporary
-        printf("%s", msg.formatted);
+        printf("%s", Msg.Formatted);
         
         // NOTE: End VA LIST
-        va_end(argList);
+        va_end(ArgList);
     }
 }
 

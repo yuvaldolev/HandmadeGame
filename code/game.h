@@ -63,12 +63,21 @@ struct hero_bitmaps
     s32 AlignY;
 };
 
+struct entity
+{
+    b32 Exists;
+    tile_map_position P;
+    v2 dP;
+    u32 FacingDirection;
+    f32 Width, Height;
+};
+
 struct world
 {
     tile_map* TileMap;
 };
 
-struct GameState
+struct game_state
 {
     memory_arena LoggingArena;
     memory_arena WorldArena;

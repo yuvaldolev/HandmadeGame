@@ -10,8 +10,7 @@ struct tile_map_position
     u32 AbsTileZ;
     
     // NOTE: These are the offsets from the tile center
-    f32 OffsetX;
-    f32 OffsetY;
+    v2 Offset;
 };
 
 struct tile_chunk_position
@@ -45,8 +44,7 @@ struct tile_map
 
 struct tile_map_difference
 {
-    f32 dX;
-    f32 dY;
+    v2 dXY;
     f32 dZ;
 };
 

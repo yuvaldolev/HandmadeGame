@@ -1,39 +1,41 @@
 #if !defined(WIN32_GAME_H)
 
-struct Win32GameCode
+struct win32_game_code
 {
-    HMODULE gameCodeDLL;
+    HMODULE GameCodeDLL;
     FILETIME DLLLastWriteTime;
     
+    // IMPORTANT: Either of the callbacks can be 0!  You must
+    // check before calling.
     GameUpdateAndRenderType* UpdateAndRender;
     GameGetSoundSamplesType* GetSoundSamples;
     
-    b32 isValid;
+    b32 IsValid;
 };
 
-struct Win32Backbuffer
+struct win32_offscreen_buffer
 {
-    BITMAPINFO info;
-    void* memory;
-    s32 width;
-    s32 height;
-    s32 pitch;
-    s32 bytesPerPixel;
+    BITMAPINFO Info;
+    void* Memory;
+    s32 Width;
+    s32 Height;
+    s32 Pitch;
+    s32 BytesPerPixel;
 };
 
-struct Win32WindowDimension
+struct win32_window_dimension
 {
-    s32 width;
-    s32 height;
+    s32 Width;
+    s32 Height;
 };
 
-struct Win32SoundOutput
+struct win32_sound_output
 {
-    s32 samplesPerSecond;
-    u32 runningSampleIndex;
-    s32 bytesPerSample;
-    u32 secondaryBufferSize;
-    DWORD safetyBytes;
+    s32 SamplesPerSecond;
+    u32 RunningSampleIndex;
+    s32 BytesPerSample;
+    u32 SecondaryBufferSize;
+    DWORD SafetyBytes;
     // TODO(yuval & eran): Should runningSampleIndex be in bytes?
     // TODO(yuval & eran): Math gets simples if we add a bytesPerSeocond field
 };
@@ -41,42 +43,41 @@ struct Win32SoundOutput
 // TODO(yuval & eran): Move this
 #define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
 
-struct Win32ReplayBuffer
+struct win32_replay_buffer
 {
-    HANDLE fileHandle;
-    HANDLE memoryMap;
-    char replayFileName[WIN32_STATE_FILE_NAME_COUNT];
-    void* memoryBlock;
+    HANDLE FileHandle;
+    HANDLE MemoryMap;
+    char ReplayFileName[WIN32_STATE_FILE_NAME_COUNT];
+    void* MemoryBlock;
 };
 
-struct Win32State
+struct win32_state
 {
-    u64 totalSize;
-    void* gameMemoryBlock;
+    u64 TotalSize;
+    void* GameMemoryBlock;
     
-    Win32ReplayBuffer replayBuffers[4];
+    win32_replay_buffer ReplayBuffers[4];
     
-    HANDLE recordingHandle;
-    s32 inputRecordingIndex;
+    HANDLE RecordingHandle;
+    s32 InputRecordingIndex;
     
-    HANDLE playBackHandle;
-    s32 inputPlayingIndex;
+    HANDLE PlayBackHandle;
+    s32 InputPlayingIndex;
     
-    char exeFileName[WIN32_STATE_FILE_NAME_COUNT];
-    char* onePastLastEXEFileNameSlash;
+    char EXEFileName[WIN32_STATE_FILE_NAME_COUNT];
+    char* OnePastLastEXEFileNameSlash;
 };
 
-struct DEBUGWin32TimeMarker
+struct win32_debug_time_marker
 {
-    DWORD outputPlayCursor;
-    DWORD outputWriteCursor;
-    DWORD outputLocation;
-    DWORD outputByteCount;
-    DWORD expectedFlipPlayCursor;
+    DWORD OutputPlayCursor;
+    DWORD OutputWriteCursor;
+    DWORD OutputLocation;
+    DWORD OutputByteCount;
+    DWORD ExpectedFlipPlayCursor;
     
-    
-    DWORD flipPlayCursor;
-    DWORD flipWriteCursor;
+    DWORD FlipPlayCursor;
+    DWORD FlipWriteCursor;
 };
 
 #define WIN32_GAME_H

@@ -4,6 +4,17 @@
 //      v2 Operations       //
 //////////////////////////////
 inline v2
+V2(f32 X, f32 Y)
+{
+    v2 Result;
+    
+    Result.X = X;
+    Result.Y = Y;
+    
+    return Result;
+}
+
+inline v2
 operator+(v2 A, v2 B)
 {
     v2 Result;

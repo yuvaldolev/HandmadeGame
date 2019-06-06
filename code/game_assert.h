@@ -5,25 +5,25 @@
 // TODO(yuval, eran): Temporary
 #include <stdio.h>
 
-#define Assert_(expression, shouldCrash) \
-if (!(expression)) \
+#define Assert_(Expression, ShouldCrash) \
+if (!(Expression)) \
 { \
-    char message[256]; \
-    snprintf(message, sizeof(message), "Assertion Failure: %s at %s:%s:%d", \
-    #expression, __FILE__, __FUNCTION__, __LINE__); \
-    platform.DisplayMessageBox("ASSERSION FAILURE", message); \
-    if (shouldCrash) \
+    char Message[256]; \
+    snprintf(Message, sizeof(Message), "Assertion Failure: %s at %s:%s:%d", \
+    #Expression, __FILE__, __FUNCTION__, __LINE__); \
+    Platform.DisplayMessageBox("ASSERSION FAILURE", Message); \
+    if (ShouldCrash) \
     { \
         *(volatile int*)0 = 0; \
     } \
 }
 
-#define Assert(expression) Assert_((expression), true)
-#define SoftAssert(expression) Assert_((expression), false)
+#define Assert(Expression) Assert_((Expression), true)
+#define SoftAssert(Expression) Assert_((Expression), false)
 
 #else
-#define Assert(expression)
-#define SoftAssert(expression)
+#define Assert(Expression)
+#define SoftAssert(Expression)
 #endif
 
 #define GAME_ASSERT_H
