@@ -215,6 +215,40 @@ GameOutputSound(game_state* GameState, game_sound_output_buffer* Buffer, const s
     }
 }
 
+inline entity
+GetEntity(game_state* GameState, entity_residence Residence, u32 Index)
+{
+    entity Entity = { };
+    
+    if ((Index > 0) && (Index < GameState->EntityCount))
+    {
+        Entity.Residence = Residence;
+        Entity.Dormant = &GameState->DormantEntities[Index];
+        Entity.Low = &GameState->LowEntities[Index];
+        Entity.High = &GameState->HighEntities[Index];
+    }
+    
+    return Entity;
+}
+
+internal u32
+AddEntity(game_state* GameState)
+{
+    u32 EntityIndex = GameState->EntityCount++;
+    
+    Assert(GameState->EntityCount < ArrayCount(GameState->DormantEntities));
+    Assert(GameState->EntityCount < ArrayCount(GameState->LowEntities));
+    Assert(GameState->EntityCount < ArrayCount(GameState->HighEntities));
+    
+    GameState->EntityResidence[EntityIndex] = EntityResidence_Dormant;
+    
+    GameState->DormantEntities[EntityIndex] = { };
+    GameState->LowEntities[EntityIndex] = { };
+    GameState->HighEntities[EntityIndex] = { };
+    
+    return EntityIndex;
+}
+
 platform_api Platform;
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)

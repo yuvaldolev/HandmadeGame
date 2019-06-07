@@ -64,13 +64,41 @@ struct hero_bitmaps
     s32 AlignY;
 };
 
-struct entity
+struct dormant_entity
+{
+    tile_map_position P;
+    f32 Width;
+    f32 Height;
+};
+
+struct low_entity
+{
+    
+};
+
+struct high_entity
 {
     b32 Exists;
-    tile_map_position P;
+    v2 P;
     v2 dP;
     u32 FacingDirection;
-    f32 Width, Height;
+};
+
+enum entity_residence
+{
+    EntityResidence_NoneExistent,
+    EntityResidence_Dormant,
+    EntityResidence_Low,
+    EntityResidence_High,
+};
+
+struct entity
+{
+    u32 Residence;
+    
+    low_entity* Low;
+    high_entity* High;
+    dormant_entity* Dormant;
 };
 
 struct world
@@ -87,6 +115,12 @@ struct game_state
     
     tile_map_position CameraP;
     tile_map_position PlayerP;
+    
+    u32 EntityCount;
+    entity_residence EntityResidence[256];
+    high_entity HighEntities[256];
+    low_entity LowEntities[256];
+    dormant_entity DormantEntities[256];
     
     loaded_bitmap Backdrop;
     
