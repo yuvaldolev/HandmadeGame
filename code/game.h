@@ -1,6 +1,7 @@
 #if !defined(GAME_H)
 
 #include "game_platform.h"
+#include "game_shared.h"
 #include "game_math.h"
 #include "game_memory.h"
 #include "game_log.h"

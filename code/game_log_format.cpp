@@ -161,6 +161,8 @@ LogFormatGetLevelString(log_level Level)
         case LogLevel_Error: { return "Error"; } break;
         case LogLevel_Fatal: { return "Fatal"; } break;
     }
+    
+    return "(level=null)";
 }
 
 internal

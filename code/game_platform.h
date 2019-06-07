@@ -16,7 +16,7 @@ extern "C" {
     
     
     // NOTE(yuval): Services that the platform provides to the game
-#define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* Title, const char* Message)
+#define PLATFORM_DISPLAY_MESSAGE_BOX(Name) void Name(const char* Title, const char* Message)
     typedef PLATFORM_DISPLAY_MESSAGE_BOX(platform_display_message_box);
     
     typedef struct platform_date_time
@@ -31,7 +31,7 @@ extern "C" {
         u16 Milliseconds;
     } platform_date_time;
     
-#define PLATFORM_GET_DATE_TIME(name) platform_date_time name()
+#define PLATFORM_GET_DATE_TIME(Name) platform_date_time Name()
     typedef PLATFORM_GET_DATE_TIME(platform_get_date_time);
     
 #ifdef GAME_INTERNAL
@@ -46,14 +46,14 @@ extern "C" {
         u32 ContentsSize;
     } debug_read_file_result;
     
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context* Thread, void* Memory)
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(Name) void Name(thread_context* Thread, void* Memory)
     typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
     
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context* Thread, \
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(Name) debug_read_file_result Name(thread_context* Thread, \
     const char* FileName)
     typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
     
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(thread_context* Thread, \
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(Name) b32 Name(thread_context* Thread, \
     const char* FileName, \
     void* Memory, u32 MemorySize)
     typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
@@ -73,7 +73,6 @@ extern "C" {
     extern platform_api Platform;
     
 #include "game_assert.h"
-#include "game_shared.h"
 #include "game_intrinsics.h"
     
     // NOTE(yuval): Services that the game provides to the platform
@@ -166,12 +165,12 @@ extern "C" {
        3. Bitmap buffer to use
        4. Sound buffer to use
     */
-#define GAME_UPDATE_AND_RENDER(name) void name(thread_context* Thread, game_memory* Memory, \
+#define GAME_UPDATE_AND_RENDER(Name) void Name(thread_context* Thread, game_memory* Memory, \
     game_input* Input, \
     game_offscreen_buffer* OffscreenBuffer)
     typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
     
-#define GAME_GET_SOUND_SAMPLES(name) void name(thread_context* Thread, game_memory* Memory, \
+#define GAME_GET_SOUND_SAMPLES(Name) void Name(thread_context* Thread, game_memory* Memory, \
     game_sound_output_buffer* SoundBuffer)
     typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
     
