@@ -82,5 +82,15 @@ operator*=(v2& B, f32 A)
     return B;
 }
 
+///////////////////////////////
+//     Scalar Operations     //
+///////////////////////////////
+inline f32
+Square(f32 Value)
+{
+    f32 Result = Value * Value;
+    return Result;
+}
+
 #define GAME_MATH_H
 #endif

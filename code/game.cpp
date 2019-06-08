@@ -479,59 +479,65 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         
         if (Controller->IsConnected)
         {
-            // NOTE: Delta coordinates are meters per second
-            v2 dPlayer = { };
+            // NOTE(yuval): ddPlayer is the player's acceleration which is in m/s^2
+            v2 ddPlayer = {};
             
             if (Controller->IsAnalog)
             {
                 // TODO(yuval, eran): Analog controller tuning
-                dPlayer.X = Controller->StickAverageX;
-                dPlayer.Y = Controller->StickAverageY;
+                ddPlayer.X = Controller->StickAverageX;
+                ddPlayer.Y = Controller->StickAverageY;
             }
             else
             {
                 // TODO(yuval, eran): Digital controller tuning
                 if (Controller->MoveUp.EndedDown)
                 {
-                    dPlayer.Y = 1.0f;
+                    ddPlayer.Y = 1.0f;
                     GameState->HeroFacingDirection = 1;
                 }
                 
                 if (Controller->MoveDown.EndedDown)
                 {
-                    dPlayer.Y = -1.0f;
+                    ddPlayer.Y = -1.0f;
                     GameState->HeroFacingDirection = 3;
                 }
                 
                 if (Controller->MoveLeft.EndedDown)
                 {
-                    dPlayer.X = -1.0f;
+                    ddPlayer.X = -1.0f;
                     GameState->HeroFacingDirection = 2;
                 }
                 
                 if (Controller->MoveRight.EndedDown)
                 {
-                    dPlayer.X = 1.0f;
+                    ddPlayer.X = 1.0f;
                     GameState->HeroFacingDirection = 0;
                 }
             }
             
-            f32 PlayerSpeed = 2.0f;
+            if ((ddPlayer.X != 0.0f) && (ddPlayer.Y != 0.0f))
+            {
+                ddPlayer *= 0.7071067812f;
+            }
+            
+            f32 PlayerSpeed = 10.0f; // NOTE(yuval): m/s^2
             
             if (Controller->Run.EndedDown)
             {
-                PlayerSpeed = 10.f;
+                PlayerSpeed = 50.f; // NOTE(yuval): m/s^2
             }
             
-            dPlayer *= PlayerSpeed;
+            ddPlayer *= PlayerSpeed;
             
-            if ((dPlayer.X != 0.0f) && (dPlayer.Y != 0.0f))
-            {
-                dPlayer *= 0.7071067812f;
-            }
+            // TODO(yuval): ODE here!
+            ddPlayer += -1.5f * GameState->dPlayerP;
             
             tile_map_position NewPlayerP = GameState->PlayerP;
-            NewPlayerP.Offset += dPlayer * Input->dtForFrame;
+            NewPlayerP.Offset = 0.5f * ddPlayer * Square(Input->dtForFrame) +
+                GameState->dPlayerP * Input->dtForFrame + NewPlayerP.Offset;
+            GameState->dPlayerP = ddPlayer * Input->dtForFrame + GameState->dPlayerP;
+            
             NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
             
             tile_map_position PlayerLeft = NewPlayerP;
