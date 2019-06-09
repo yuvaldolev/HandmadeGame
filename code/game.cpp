@@ -215,6 +215,28 @@ GameOutputSound(game_state* GameState, game_sound_output_buffer* Buffer, const s
     }
 }
 
+internal void
+ChangeEntityResidence(game_state* GameState, u32 EntityIndex, entity_residence Residence)
+{
+    if (Residence == EntityResidence_High)
+    {
+        if (GameState->EntityResidence[EntityIndex] != EntityResidence_High)
+        {
+            high_entity* EntityHigh = &GameState->HighEntities[EntityIndex];
+            dormant_entity* EntityDormant = &GameState->DormantEntities[EntityIndex];
+            
+            tile_map_difference Diff = Subtract(GameState->World->TileMap,
+                                                &EntityDormant->P, &GameState->CameraP);
+            EntityHigh->P = Diff.dXY;
+            EntityHigh->dP = V2(0, 0);
+            EntityHigh->AbsTileZ = EntityDormant->P.AbsTileZ;
+            EntityHigh->FacingDirection = 0;
+        }
+    }
+    
+    GameState->EntityResidence[EntityIndex] = Residence;
+}
+
 inline entity
 GetEntity(game_state* GameState, entity_residence Residence, u32 Index)
 {
@@ -222,6 +244,12 @@ GetEntity(game_state* GameState, entity_residence Residence, u32 Index)
     
     if ((Index > 0) && (Index < GameState->EntityCount))
     {
+        if (GameState->EntityResidence[Index] < Residence)
+        {
+            ChangeEntityResidence(GameState, Index, Residence);
+            Assert(GameState->EntityResidence[Index] >= Residence);
+        }
+        
         Entity.Residence = Residence;
         Entity.Dormant = &GameState->DormantEntities[Index];
         Entity.Low = &GameState->LowEntities[Index];
@@ -247,6 +275,80 @@ AddEntity(game_state* GameState)
     GameState->HighEntities[EntityIndex] = { };
     
     return EntityIndex;
+}
+
+internal void
+MovePlayer(game_state* GameState, entity Entity, f32 PlayerSpeed, f32 dt, v2 dPlayer)
+{
+    tile_map* TileMap = GameState->World->TileMap;
+    dPlayer *= PlayerSpeed;
+    
+    f32 PlayerHeight = 1.4f;
+    f32 PlayerWidth = PlayerHeight * 0.75f;
+    
+    if ((dPlayer.X != 0.0f) && (dPlayer.Y != 0.0f))
+    {
+        dPlayer *= 0.7071067812f;
+    }
+    
+    u32 HitIndex = 0;
+    for (u32 EntityIndex = 0; EntityIndex < GameState->EntityCount; ++EntityIndex)
+    {
+        
+        entity TestEntity = GetEntity(GameState, EntityResidence_High,  EntityIndex);
+        
+        if (TestEntity.Dormant->Collides)
+        {
+            f32 DiameterW = TestEntity.Dormant->Width + Entity.Dormant->Width;
+            f32 DiameterH = TestEntity.Dormant->Height + Entity.Dormant->Height;
+            
+            v2 MinCorner = -0.5f*V2(DiameterW, DiameterH);
+            v2 MaxCorner = 0.5f*V2(DiameterW, DiameterH);
+            
+            v2 Rel = Entity.High->P - TestEntity.High->P;
+        }
+    }
+    
+    if(HitIndex)
+    {
+        entity HitEntity = GetEntity(GameState, EntityResidence_High, HitIndex);
+        Entity.High->AbsTileZ += HitEntity.Dormant->dAbsTileZ;
+    }
+    
+    tile_map_position NewPlayerP = GameState->PlayerP;
+    NewPlayerP.Offset += dPlayer * dt;
+    NewPlayerP = MapIntoTileSpace(TileMap, NewPlayerP, V2(0, 0));
+    
+    tile_map_position PlayerLeft = NewPlayerP;
+    PlayerLeft.Offset.X -= 0.5f * PlayerWidth;
+    PlayerLeft = MapIntoTileSpace(TileMap, PlayerLeft, V2(0, 0));
+    
+    tile_map_position PlayerRight = NewPlayerP;
+    PlayerRight.Offset.X += 0.5f * PlayerWidth;
+    PlayerRight = MapIntoTileSpace(TileMap, PlayerRight, V2(0, 0));
+    
+    if (IsTileMapPointEmpty(TileMap, NewPlayerP) &&
+        IsTileMapPointEmpty(TileMap, PlayerLeft) &&
+        IsTileMapPointEmpty(TileMap, PlayerRight))
+    {
+        if (!AreOnSameTile(&GameState->PlayerP, &NewPlayerP))
+        {
+            u32 NewTileValue = GetTileValue(TileMap, NewPlayerP);
+            
+            if (NewTileValue == 3)
+            {
+                ++NewPlayerP.AbsTileZ;
+            }
+            else if (NewTileValue == 4)
+            {
+                -- NewPlayerP.AbsTileZ;
+            }
+        }
+        
+        GameState->PlayerP = NewPlayerP;
+    }
+    
+    //Entity.Dormant->P = MapIntoTileSpace(GameState->World->TileMap, GameState->CameraP, Entity.High->P);
 }
 
 platform_api Platform;
@@ -557,45 +659,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 PlayerSpeed = 10.f;
             }
             
-            dPlayer *= PlayerSpeed;
-            
-            if ((dPlayer.X != 0.0f) && (dPlayer.Y != 0.0f))
-            {
-                dPlayer *= 0.7071067812f;
-            }
-            
-            tile_map_position NewPlayerP = GameState->PlayerP;
-            NewPlayerP.Offset += dPlayer * Input->dtForFrame;
-            NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
-            
-            tile_map_position PlayerLeft = NewPlayerP;
-            PlayerLeft.Offset.X -= 0.5f * PlayerWidth;
-            PlayerLeft = RecanonicalizePosition(TileMap, PlayerLeft);
-            
-            tile_map_position PlayerRight = NewPlayerP;
-            PlayerRight.Offset.X += 0.5f * PlayerWidth;
-            PlayerRight = RecanonicalizePosition(TileMap, PlayerRight);
-            
-            if (IsTileMapPointEmpty(TileMap, NewPlayerP) &&
-                IsTileMapPointEmpty(TileMap, PlayerLeft) &&
-                IsTileMapPointEmpty(TileMap, PlayerRight))
-            {
-                if (!AreOnSameTile(&GameState->PlayerP, &NewPlayerP))
-                {
-                    u32 NewTileValue = GetTileValue(TileMap, NewPlayerP);
-                    
-                    if (NewTileValue == 3)
-                    {
-                        ++NewPlayerP.AbsTileZ;
-                    }
-                    else if (NewTileValue == 4)
-                    {
-                        -- NewPlayerP.AbsTileZ;
-                    }
-                }
-                
-                GameState->PlayerP = NewPlayerP;
-            }
+            entity Entity = { };
+            MovePlayer(GameState, Entity, PlayerSpeed, Input->dtForFrame, dPlayer);
             
             GameState->CameraP.AbsTileZ = GameState->PlayerP.AbsTileZ;
             

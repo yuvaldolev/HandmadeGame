@@ -69,6 +69,9 @@ struct dormant_entity
     tile_map_position P;
     f32 Width;
     f32 Height;
+    
+    b32 Collides;
+    s32 dAbsTileZ;
 };
 
 struct low_entity
@@ -81,6 +84,7 @@ struct high_entity
     b32 Exists;
     v2 P;
     v2 dP;
+    u32 AbsTileZ;
     u32 FacingDirection;
 };
 

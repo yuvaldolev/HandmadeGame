@@ -15,10 +15,11 @@ RecanonicalizeCoord(tile_map* TileMap, u32* Tile, f32* TileRel)
 }
 
 internal tile_map_position
-RecanonicalizePosition(tile_map* TileMap, tile_map_position Pos)
+MapIntoTileSpace(tile_map* TileMap, tile_map_position BasePos, v2 Offset)
 {
-    tile_map_position Result = Pos;
+    tile_map_position Result = BasePos;
     
+    Result.Offset += Offset;
     RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.Offset.X);
     RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.Offset.Y);
     
