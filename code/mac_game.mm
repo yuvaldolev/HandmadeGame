@@ -1436,7 +1436,7 @@ main(int argc, const char* argv[])
                     
                     MacUpdateWindow(&GlobalBackbuffer);
                     
-#if 1
+#if 0
                     f32 MSPerFrame = (1000.0f * MacGetSecondsElapsed(LastCounter, FlipWallClock));
                     f32 FPS = (1000.0f / MSPerFrame);
                     
@@ -1454,7 +1454,6 @@ main(int argc, const char* argv[])
                 }
             }
             
-#if 1
             for (u32 ReplayIndex = 0;
                  ReplayIndex < ArrayCount(MacState.ReplayBuffers);
                  ++ReplayIndex)
@@ -1464,7 +1463,6 @@ main(int argc, const char* argv[])
                 munmap(ReplayBuffer->MemoryBlock,
                        MacState.TotalSize);
             }
-#endif
         }
     }
 }

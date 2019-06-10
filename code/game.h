@@ -1,6 +1,7 @@
 #if !defined(GAME_H)
 
 #include "game_platform.h"
+#include "game_for.h"
 #include "game_shared.h"
 #include "game_math.h"
 #include "game_memory.h"
@@ -87,6 +88,7 @@ struct game_state
     
     tile_map_position CameraP;
     tile_map_position PlayerP;
+    v2 dPlayerP;
     
     loaded_bitmap Backdrop;
     

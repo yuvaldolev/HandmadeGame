@@ -1,5 +1,15 @@
 #if !defined(GAME_MATH_H)
 
+///////////////////////////////
+//     Scalar Operations     //
+///////////////////////////////
+inline f32
+Square(f32 Value)
+{
+    f32 Result = Value * Value;
+    return Result;
+}
+
 //////////////////////////////
 //      v2 Operations       //
 //////////////////////////////
@@ -80,6 +90,20 @@ operator*=(v2& B, f32 A)
 {
     B = A * B;
     return B;
+}
+
+inline f32
+Inner(v2 A, v2 B)
+{
+    f32 Result = A.X * B.X + A.Y * B.Y;
+    return Result;
+}
+
+inline f32
+LengthSq(v2 A)
+{
+    f32 Result = Inner(A, A);
+    return Result;
 }
 
 #define GAME_MATH_H
