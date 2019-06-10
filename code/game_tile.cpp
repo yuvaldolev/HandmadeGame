@@ -152,13 +152,19 @@ SetTileValue(memory_arena* Arena, tile_map* TileMap,
 }
 
 internal b32
+IsTileValueEmpty(u32 TileValue)
+{
+    b32 IsEmpty = ((TileValue == 1) ||
+                   (TileValue == 3) ||
+                   (TileValue == 4));
+    return IsEmpty;
+}
+
+internal b32
 IsTileMapPointEmpty(tile_map* TileMap, tile_map_position Pos)
 {
     u32 TileChunkValue = GetTileValue(TileMap, Pos.AbsTileX, Pos.AbsTileY, Pos.AbsTileZ);
-    b32 IsEmpty = ((TileChunkValue == 1) ||
-                   (TileChunkValue == 3) ||
-                   (TileChunkValue == 4));
-    
+    b32 IsEmpty = IsTileValueEmpty(TileChunkValue);
     return IsEmpty;
 }
 
@@ -183,6 +189,18 @@ Subtract(tile_map* TileMap, tile_map_position* A, tile_map_position* B)
     
     Result.dXY = TileMap->TileSideInMeters  * dTileXY + (A->Offset - B->Offset);
     Result.dZ = dTileZ * TileMap->TileSideInMeters;
+    
+    return Result;
+}
+
+inline tile_map_position
+CenteredTilePoint(u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+{
+    tile_map_position Result = {};
+    
+    Result.AbsTileX = AbsTileX;
+    Result.AbsTileY = AbsTileY;
+    Result.AbsTileZ = AbsTileZ;
     
     return Result;
 }

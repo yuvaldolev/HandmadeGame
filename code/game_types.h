@@ -43,25 +43,15 @@
 #define Pi32 3.14159265359f
 
 // TODO(yuval & eran): Move this to another file
-#define Kilobytes(value) (1024LL * (value))
-#define Megabytes(value) (1024LL * Kilobytes(value))
-#define Gigabytes(value) (1024LL * Megabytes(value))
-#define Terabytes(value) (1024LL * Gigabytes(value))
+#define Kilobytes(Value) (1024LL * (Value))
+#define Megabytes(Value) (1024LL * Kilobytes(Value))
+#define Gigabytes(Value) (1024LL * Megabytes(Value))
+#define Terabytes(Value) (1024LL * Gigabytes(Value))
 
 // NOTE(yuval): To be used only in the same function
-// where the array was defined!
-#define ArrayCount(array) (sizeof(array) / sizeof((array)[0]))
-
-// NOTE(yuval): Array Foreach
-#define ArrayForeach(var, array) \
-for (s32 arrayIndex = 0; arrayIndex < ArrayCount(array); ++arrayIndex) \
-for (b32 b = true; b; b = false) \
-for (var = (array)[arrayIndex]; b; b = false)
-
-#define ArrayForeachRef(var, array) \
-for (s32 arrayIndex = 0; arrayIndex < ArrayCount(array); ++arrayIndex) \
-for (b32 b = true; b; b = false) \
-for (var = &(array)[arrayIndex]; b; b = false)
+// where the array was defined or with arrays that are defined
+// within structs
+#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
 typedef int8_t s8;
 typedef int16_t s16;

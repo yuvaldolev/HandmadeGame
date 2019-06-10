@@ -99,5 +99,12 @@ Inner(v2 A, v2 B)
     return Result;
 }
 
+inline f32
+LengthSq(v2 A)
+{
+    f32 Result = Inner(A, A);
+    return Result;
+}
+
 #define GAME_MATH_H
 #endif
