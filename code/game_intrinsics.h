@@ -85,10 +85,20 @@ FindLeastSignificantSetBit(u32 Value)
             break;
         }
     }
-#endif
+#endif // #if COMPILER_MSVC
+    Result.Found = _BitScanForward((unsigned long*)&Result.Index, Value);
+#else
+    for (u32 Index = 0; Index < 32; ++Index)
+    {
+        if (Value & (1 << Index))
+        {
+            Result.Index = Index;
+            Result.Found = true;
+            break;
+        }
     
     return Result;
 }
 
 #define GAME_INTRINSICS_H
-#endif
+#endif // #if !defined(GAME_INTRINSICS_H)

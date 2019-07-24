@@ -2,6 +2,7 @@
 
 #include "game_log.cpp"
 #include "game_tile.cpp"
+#include "game_render_group.cpp"
 
 #include <math.h> // TODO(yuval & eran): Temporary
 

@@ -8,6 +8,7 @@
 #include "game_log.h"
 #include "game_tile.h"
 #include "game_random.h"
+#include "game_render_group.h"
 
 /*
    NOTE(yuval): Build Options

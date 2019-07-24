@@ -1053,6 +1053,7 @@ MacGetAppFileName(mac_state* State)
     
     State->OnePastLastAppFileNameSlash = State->AppFileName + SizeOfFileName;
     
+    // TODO(yuval): Revese scan for the slash
     for (char* Scan = State->AppFileName; *Scan; ++Scan)
     {
         if (*Scan == '/')

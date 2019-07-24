@@ -1,7 +1,6 @@
 #if !defined(GAME_ASSERT_H)
 
 #if GAME_SLOW
-
 // TODO(yuval, eran): Temporary
 #include <stdio.h>
 
